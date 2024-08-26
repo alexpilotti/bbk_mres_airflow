@@ -100,11 +100,17 @@ with DAG(
     attention_tasks = []
     svm_embeddings_prediction_tasks = []
 
+    (task_check_split_data,
+     task_split_data) = tasks.create_split_data_tasks(
+         sftp_hook, sftp_hook, CHAIN_H)
+
     (get_tmp_input,
      ucl_put_input) = tasks.create_ucl_upload_sequences_task(
          sftp_hook, ucl_sftp_hook)
 
-    for (ucl_cluster, model, chain, model_path, ucl_model_path,
+    task_split_data >> get_tmp_input
+
+    for (ucl_cluster, model, chain, model_path_pt, ucl_model_path,
          use_default_model_tokenizer, task_model_name) in task_info:
         if not task_model_name:
             task_model_name = model
@@ -114,9 +120,10 @@ with DAG(
                 with TaskGroup(group_id=f"training") as tg1:
                     (check_update_model,
                      training) = tasks.create_training_tasks(
-                        ssh_hook, sftp_hook, model, chain, model_path,
+                        ssh_hook, sftp_hook, model, chain, model_path_pt,
                         use_default_model_tokenizer, task_model_name)
 
+                    task_split_data >> check_update_model
                     last_training_task = training
             else:
                 with TaskGroup(group_id=f"ucl_training") as tg1:
@@ -135,12 +142,12 @@ with DAG(
             with TaskGroup(group_id=f"attentions") as tg1:
                 (check_updated_attentions_pt,
                  attentions_pt) = tasks.create_attention_comparison_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path,
+                    ssh_hook, sftp_hook, model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name)
 
                 (check_updated_attentions_ft,
                  attentions_ft) = tasks.create_attention_comparison_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path,
+                    ssh_hook, sftp_hook, model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
@@ -148,13 +155,13 @@ with DAG(
                 (check_updated_embeddings_pt,
                  get_embeddings_pt, check_svm_emb_prediction_pt,
                  svm_emb_prediction_pt) = tasks.create_embeddings_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path,
+                    ssh_hook, sftp_hook, model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name)
 
                 (check_updated_embeddings_ft,
                  get_embeddings_ft, check_svm_emb_prediction_ft,
                  svm_emb_prediction_ft) = tasks.create_embeddings_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path,
+                    ssh_hook, sftp_hook, model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
