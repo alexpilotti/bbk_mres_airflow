@@ -90,10 +90,14 @@ SVM_EMBEDDINGS_PREDICTION_CMD = (
     "-l {{ params.positive_labels }}")
 
 RMARKDOWN_CMD = (
+    "tmp_dir=$(/usr/bin/mktemp -d) && "
+    "tmp_rmd_path=\"${tmp_dir}/$(basename '{{ params.rmd_path }}')\" && "
+    "cp '{{ params.rmd_path }}' \"${tmp_rmd_path}\" && "
     "/usr/bin/Rscript -e "
-    "\"rmarkdown::render('{{ params.rmd_path }}', "
+    "\"rmarkdown::render('${tmp_rmd_path}', "
     "output_file = '{{ params.output_path }}', "
-    "params = list({{ params.params }}))\"")
+    "params = list({{ params.params }}))\" && "
+    "rm -rf \"${tmp_dir}\"")
 
 '''
 QSUB_CMD = (
@@ -308,7 +312,7 @@ def create_rmarkdown_task(ssh_hook, task_id, rmd_path, output_path, chain):
         command=RMARKDOWN_CMD,
         params={"rmd_path": rmd_path,
                 "output_path": output_path,
-                "params": f"chain='{chain}'"},
+                "params": f"chain='{chain}', data_path='{common.DATA_PATH}'"},
         trigger_rule="none_failed"
     )
 
