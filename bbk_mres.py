@@ -2,15 +2,19 @@ from datetime import datetime, timedelta
 
 from airflow.models.dag import DAG
 
+from airflow.models import Variable
 from airflow.operators.email import EmailOperator
 from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.utils.task_group import TaskGroup
 
 from bbk_mres_airflow import common
+from bbk_mres_airflow import git_tasks
 from bbk_mres_airflow import ssh_jump_hook
 from bbk_mres_airflow import tasks
 
+VAR_GIT_BRANCH = "bbk_mres_git_branch"
+GIT_DEFAULT_BRANCH = "main"
 
 MODEL_BALM_PAIRED = "BALM-paired"
 MODEL_ANTIBERTY = "AntiBERTy"
@@ -97,6 +101,13 @@ with DAG(
          UCL_FT_ESM2_MODEL_PATH, True, MODEL_NAME_FT_ESM2)
     ]
 
+    with TaskGroup(group_id="git") as tg:
+        git_branch = Variable.get(
+            VAR_GIT_BRANCH, default_var=GIT_DEFAULT_BRANCH)
+        ucl_git_reset_task = git_tasks.create_git_reset_task(
+            "ucl_git_reset", ucl_ssh_hook, git_branch, tasks.UCL_BASE_DIR,
+            hard_reset=True)
+
     attention_tasks = []
     svm_embeddings_prediction_tasks = []
 
@@ -134,6 +145,7 @@ with DAG(
                         model, chain, ucl_model_path,
                         use_default_model_tokenizer, task_model_name)
 
+                    ucl_git_reset_task >> ucl_training
                     check_update_model >> get_tmp_input
                     ucl_put_input >> ucl_training
                     check_update_model >> ucl_training
