@@ -20,7 +20,7 @@ class SFTPComparePathDatetimesSensor(BaseSensorOperator):
 
     def poke(self, context):
         if not self.sftp_hook.path_exists(self.path1):
-            raise exceptions.AirflowSkipException(
+            raise exceptions.AirflowFailException(
                 f"Path does not exist: {self.path1}")
         if not self.sftp_hook.path_exists(self.path2):
             logger.info(f"Path does not exist: {self.path2}")
