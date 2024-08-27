@@ -113,7 +113,7 @@ with DAG(
 
     (task_check_split_data,
      task_split_data) = tasks.create_split_data_tasks(
-         sftp_hook, sftp_hook, CHAIN_H)
+         sftp_hook, sftp_hook)
 
     (get_tmp_input,
      ucl_put_input) = tasks.create_ucl_upload_sequences_task(

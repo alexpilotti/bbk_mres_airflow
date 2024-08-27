@@ -47,8 +47,7 @@ SPLIT_DATA_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "split-data -i {{ params.input }} -o {{ params.output }} "
-    "-c {{ params.chain }} -l {{ params.positive_labels }} "
-    "-f {{ params.fold }}")
+    "-l {{ params.positive_labels }} -f {{ params.fold }}")
 
 TRAINING_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
@@ -162,14 +161,14 @@ def create_attention_comparison_tasks(
 
 
 @task_group(group_id="split_data")
-def create_split_data_tasks(ssh_hook, sftp_hook, chain):
+def create_split_data_tasks(ssh_hook, sftp_hook):
 
     input_path = SPLIT_DATA_INPUT_PATH
     # TODO: add chain to path
     output_path = TRAINING_INPUT_PATH
 
     task_check = sftp_compare_operators.SFTPComparePathDatetimesSensor(
-        task_id=f"check_split_data_{chain}",
+        task_id=f"check_split_data",
         sftp_hook=sftp_hook,
         path1=input_path,
         path2=output_path,
@@ -177,14 +176,13 @@ def create_split_data_tasks(ssh_hook, sftp_hook, chain):
     )
 
     task_split_data = SSHOperator(
-        task_id=f"split_data_{chain}",
+        task_id=f"split_data",
         ssh_hook=ssh_hook,
         command=SPLIT_DATA_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
                 "input": input_path,
                 "output": output_path,
-                "chain": chain,
                 "positive_labels": POSITIVE_LABELS,
                 "fold": FOLD},
     )
