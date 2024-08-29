@@ -13,8 +13,9 @@ from bbk_mres_airflow import git_tasks
 from bbk_mres_airflow import ssh_jump_hook
 from bbk_mres_airflow import tasks
 
-VAR_GIT_BRANCH = "bbk_mres_git_branch"
-GIT_DEFAULT_BRANCH = "main"
+VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
+GIT_BBK_MRES_DEFAULT_BRANCH = "main"
+GIT_DEFAULT_SGE_UTILS_BRANCH = "master"
 
 MODEL_BALM_PAIRED = "BALM-paired"
 MODEL_ANTIBERTY = "AntiBERTy"
@@ -103,9 +104,14 @@ with DAG(
 
     with TaskGroup(group_id="git") as tg:
         git_branch = Variable.get(
-            VAR_GIT_BRANCH, default_var=GIT_DEFAULT_BRANCH)
-        ucl_git_reset_task = git_tasks.create_git_reset_task(
-            "ucl_git_reset", ucl_ssh_hook, git_branch, tasks.UCL_BASE_DIR,
+            VAR_GIT_BBK_MRES_BRANCH, default_var=GIT_BBK_MRES_DEFAULT_BRANCH)
+        ucl_bbk_mres_git_reset_task = git_tasks.create_git_reset_task(
+            "ucl_bbk_mres_git_reset", ucl_ssh_hook, git_branch,
+            tasks.UCL_BASE_DIR, hard_reset=True)
+
+        ucl_sge_utils_git_reset_task = git_tasks.create_git_reset_task(
+            "ucl_sge_utils_git_reset", ucl_ssh_hook,
+            GIT_DEFAULT_SGE_UTILS_BRANCH, tasks.UCL_SGE_UTILS_BASE_DIR,
             hard_reset=True)
 
     attention_tasks = []
@@ -145,7 +151,8 @@ with DAG(
                         model, chain, ucl_model_path,
                         use_default_model_tokenizer, task_model_name)
 
-                    ucl_git_reset_task >> ucl_training
+                    ucl_bbk_mres_git_reset_task >> ucl_training
+                    ucl_sge_utils_git_reset_task >> ucl_training
                     check_update_model >> get_tmp_input
                     ucl_put_input >> ucl_training
                     check_update_model >> ucl_training
