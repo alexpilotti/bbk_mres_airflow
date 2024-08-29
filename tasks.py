@@ -34,6 +34,8 @@ EMBEDDINGS_OUTPUT_PATH = (
 SVM_EMBEDDINGS_PREDICTION_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}.csv")
 
+UCL_SGE_UTILS_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/sge-utils"
+
 UCL_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/bbk-mres"
 UCL_DATA_PATH = f"{UCL_BASE_DIR}/data"
 UCL_MODELS_PATH = f"{UCL_BASE_DIR}/models"
@@ -106,7 +108,7 @@ QSUB_CMD = (
 '''
 
 SGE_CMD = (
-    f"{UCL_BASE_DIR}/"
+    f"{UCL_SGE_UTILS_BASE_DIR}/"
     "run_sge_task.sh {{ params.job_name }} {{ params.cmd }}")
 
 UCL_TRAINING_CMD = (
