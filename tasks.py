@@ -42,6 +42,9 @@ UCL_MODELS_PATH = f"{UCL_BASE_DIR}/models"
 UCL_TRAINING_INPUT_PATH = f"{UCL_DATA_PATH}/S_split.parquet"
 UCL_TRAINING_OUTPUT_PATH = f"{UCL_MODELS_PATH}/" + "{model}_{chain}/"
 
+UCL_TRAINING_NUM_GPUS = 2
+UCL_TRAINING_GPU_TYPE = "a40"
+
 POSITIVE_LABELS = "S+ S1+ S2+"
 FOLD = 1
 
@@ -102,7 +105,14 @@ RMARKDOWN_CMD = (
 
 SGE_CMD = (
     f"{UCL_SGE_UTILS_BASE_DIR}/"
-    "run_sge_task.sh {{ params.job_name }} {{ params.cmd }}")
+    "run_sge_task.sh {{ params.job_name }} \"{{ params.native_specs }}\" "
+    "{{ params.cmd }}")
+
+SGE_NATIVE_SPECS = (
+    "-l h_rt=19:00:00 -R y -l tmem={{ mem_gb }}G "
+    "{% if num_gpus > 0 %}-l gpu=True -pe gpu {{ num_gpus }} {% endif %}"
+    "{% if gpu_type %}-l gpu_type={{ gpu_type }} {% endif %}"
+    "-l tscratch={{ scratch_gb }}G")
 
 UCL_TRAINING_CMD = (
     f"{UCL_BASE_DIR}/" + "fine_tuning.sh {{ model }} "
@@ -311,18 +321,22 @@ def create_rmarkdown_task(ssh_hook, task_id, rmd_path, output_path, chain):
 
 
 def _create_grid_engine_task(
-        ssh_hook, task_id, cmd, num_gpu=2, stratch_gb=50,
-        trigger_rule="all_success", retries=5):
+        ssh_hook, task_id, cmd, mem_gb=4, num_gpus=2, gpu_type=None,
+        scratch_gb=50, trigger_rule="all_success", retries=5):
+
+    template = jinja2.Environment().from_string(SGE_NATIVE_SPECS)
+    native_specs = template.render(
+        mem_gb=mem_gb, num_gpus=num_gpus, gpu_type=gpu_type,
+        scratch_gb=scratch_gb)
+
     return SSHOperator(
         task_id=task_id,
         ssh_hook=ssh_hook,
         command=SGE_CMD,
         trigger_rule=trigger_rule,
         retries=retries,
-        params={# "require_gpu": num_gpu > 0,
-                # "num_gpu": num_gpu,
-                # "stratch_gb": stratch_gb,
-                "job_name": task_id,
+        params={"job_name": task_id,
+                "native_specs": native_specs,
                 "cmd": cmd}
     )
 
@@ -356,7 +370,7 @@ def create_ucl_upload_sequences_task(sftp_hook, ucl_sftp_hook):
 def create_ucl_training_tasks(
         ucl_ssh_hook, ucl_sftp_hook, ssh_hook, sftp_hook, model, chain,
         model_path=None, use_default_model_tokenizer=None,
-        task_model_name=None, num_gpu=2, stratch_gb=50):
+        task_model_name=None):
 
     input_path = TRAINING_INPUT_PATH
     output_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
@@ -388,7 +402,9 @@ def create_ucl_training_tasks(
 
     training_task_id = f"ucl_training_{task_model_name}_{chain}"
     training_task = _create_grid_engine_task(
-        ucl_ssh_hook, training_task_id, cmd, num_gpu, stratch_gb)
+        ucl_ssh_hook, training_task_id, cmd,
+        num_gpus=UCL_TRAINING_NUM_GPUS,
+        gpu_type=UCL_TRAINING_GPU_TYPE)
 
     task_get_model_zip = SFTPOperator(
         task_id=f"ucl_download_zip_{task_model_name}_{chain}",
