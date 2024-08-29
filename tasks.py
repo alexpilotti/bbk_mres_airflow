@@ -100,13 +100,6 @@ RMARKDOWN_CMD = (
     "params = list({{ params.params }}))\" && "
     "rm -rf \"${tmp_dir}\"")
 
-'''
-QSUB_CMD = (
-    "qsub -l tmem=4G -l h_rt=19:00:00 -l gpu={{ params.require_gpu }} -R y "
-    "-pe gpu {{ params.num_gpu }} -l tscratch={{ params.stratch_gb }}G -j y "
-    "-N {{ params.job_name }} {{ params.cmd }}")
-'''
-
 SGE_CMD = (
     f"{UCL_SGE_UTILS_BASE_DIR}/"
     "run_sge_task.sh {{ params.job_name }} {{ params.cmd }}")
