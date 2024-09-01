@@ -33,6 +33,8 @@ EMBEDDINGS_OUTPUT_PATH = (
 
 SVM_EMBEDDINGS_PREDICTION_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}.csv")
+SVM_EMBEDDINGS_SHUFFLED_PREDICTION_OUTPUT_PATH = (
+    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}_shuffled.csv")
 
 UCL_SGE_UTILS_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/sge-utils"
 
@@ -91,7 +93,8 @@ SVM_EMBEDDINGS_PREDICTION_CMD = (
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "svm-embeddings-prediction -i {{ params.input }} "
     "-e {{ params.embeddings }} -o {{ params.output }} "
-    "-l {{ params.positive_labels }}")
+    "-l {{ params.positive_labels }}"
+    "{% if params.shuffle %} --shuffle{% endif %}")
 
 RMARKDOWN_CMD = (
     "tmp_dir=$(/usr/bin/mktemp -d) && "
@@ -298,14 +301,49 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
                 "input": input_path,
                 "output": svm_output_path,
                 "embeddings": embeddings_path,
+                "shuffle": False,
                 "positive_labels": POSITIVE_LABELS}
     )
 
-    task_check_emb >> task_embeddings >> task_check_svm
     task_check_svm >> task_compute_svm_embeddings_prediction
 
+    svm_output_path_shuffled = (
+        SVM_EMBEDDINGS_SHUFFLED_PREDICTION_OUTPUT_PATH.format(
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+
+    task_check_svm_shuffled = (
+        sftp_compare_operators.SFTPComparePathDatetimesSensor(
+            task_id=("check_update_svm_embeddings_prediction_"
+                     f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
+            sftp_hook=sftp_hook,
+            path1=embeddings_path,
+            path2=svm_output_path_shuffled,
+            timeout=0,
+            trigger_rule="none_failed"
+        ))
+
+    task_compute_svm_embeddings_prediction_shuffled = SSHOperator(
+        task_id=("compute_svm_embeddings_prediction_" +
+                 f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
+        ssh_hook=ssh_hook,
+        command=SVM_EMBEDDINGS_PREDICTION_CMD,
+        params={"venv_path": VENV_PATH,
+                "base_path": common.BASE_PATH,
+                "input": input_path,
+                "output": svm_output_path_shuffled,
+                "embeddings": embeddings_path,
+                "shuffle": True,
+                "positive_labels": POSITIVE_LABELS}
+    )
+
+    task_check_svm_shuffled >> task_compute_svm_embeddings_prediction_shuffled
+
+    task_check_emb >> task_embeddings >> [
+        task_check_svm, task_check_svm_shuffled]
+
     return (task_check_emb, task_embeddings, task_check_svm,
-            task_compute_svm_embeddings_prediction)
+            task_compute_svm_embeddings_prediction, task_check_svm_shuffled,
+            task_compute_svm_embeddings_prediction_shuffled)
 
 
 def create_rmarkdown_task(ssh_hook, task_id, rmd_path, output_path, chain):

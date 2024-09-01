@@ -172,14 +172,16 @@ with DAG(
 
             with TaskGroup(group_id=f"embeddings") as tg1:
                 (check_updated_embeddings_pt,
-                 get_embeddings_pt, check_svm_emb_prediction_pt,
-                 svm_emb_prediction_pt) = tasks.create_embeddings_tasks(
+                 get_embeddings_pt, check_svm_emb_pred_pt,
+                 svm_emb_pred_pt, check_svm_emb_pred_pt_shuffled,
+                 svm_emb_pred_pt_shuffled) = tasks.create_embeddings_tasks(
                     ssh_hook, sftp_hook, model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name)
 
                 (check_updated_embeddings_ft,
-                 get_embeddings_ft, check_svm_emb_prediction_ft,
-                 svm_emb_prediction_ft) = tasks.create_embeddings_tasks(
+                 get_embeddings_ft, check_svm_emb_pred_ft,
+                 svm_emb_pred_ft, check_svm_emb_pred_ft_shuffled,
+                 svm_emb_pred_ft_shuffled) = tasks.create_embeddings_tasks(
                     ssh_hook, sftp_hook, model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
@@ -187,13 +189,11 @@ with DAG(
                 last_training_task >> check_updated_attentions_ft
                 last_training_task >> check_updated_embeddings_ft
 
-            attention_tasks.append(attentions_pt)
-            attention_tasks.append(attentions_ft)
+            attention_tasks.extend([attentions_pt, attentions_ft])
 
-            svm_embeddings_prediction_tasks.append(
-                svm_emb_prediction_pt)
-            svm_embeddings_prediction_tasks.append(
-                svm_emb_prediction_ft)
+            svm_embeddings_prediction_tasks.extend(
+                [svm_emb_pred_pt, svm_emb_pred_pt_shuffled,
+                 svm_emb_pred_ft, svm_emb_pred_ft_shuffled])
 
     with TaskGroup(group_id=f"reports") as tg:
         process_attention_comparison_rmd = tasks.create_rmarkdown_task(
