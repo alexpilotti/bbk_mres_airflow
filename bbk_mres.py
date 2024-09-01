@@ -74,6 +74,7 @@ with DAG(
         # 'on_skipped_callback': another_function, #or list of functions
         # 'trigger_rule': 'all_success'
     },
+    max_active_runs=1,
     description="BBK-MRes DAG",
     schedule_interval=None,
     # schedule=timedelta(days=1),
