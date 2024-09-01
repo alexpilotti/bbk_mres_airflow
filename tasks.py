@@ -10,6 +10,8 @@ from airflow.providers.ssh.operators.ssh import SSHOperator
 from bbk_mres_airflow import common
 from bbk_mres_airflow import sftp_compare_operators
 
+CPU_TASKS_POOL = "cpu_pool"
+SINGLE_GPU_POOL = "single_gpu_pool"
 
 MODELS_PATH = f"{common.DATA_PATH}/models"
 VENV_PATH = f"{common.BASE_PATH}/venv"
@@ -160,7 +162,7 @@ def create_attention_comparison_tasks(
                 "chain": chain,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer},
-        pool="single_gpu_pool"
+        pool=SINGLE_GPU_POOL
     )
 
     task_check >> task_attention_comparison
@@ -231,7 +233,7 @@ def create_training_tasks(ssh_hook, sftp_hook, model, chain,
                 "chain": chain,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer},
-        pool="single_gpu_pool"
+        pool=SINGLE_GPU_POOL
     )
 
     task_check >> task_train
@@ -275,7 +277,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
                 "chain": chain,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer},
-        pool="single_gpu_pool"
+        pool=SINGLE_GPU_POOL
     )
 
     svm_output_path = SVM_EMBEDDINGS_PREDICTION_OUTPUT_PATH.format(
@@ -302,7 +304,8 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
                 "output": svm_output_path,
                 "embeddings": embeddings_path,
                 "shuffle": False,
-                "positive_labels": POSITIVE_LABELS}
+                "positive_labels": POSITIVE_LABELS},
+        pool=CPU_TASKS_POOL
     )
 
     task_check_svm >> task_compute_svm_embeddings_prediction
@@ -333,7 +336,8 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
                 "output": svm_output_path_shuffled,
                 "embeddings": embeddings_path,
                 "shuffle": True,
-                "positive_labels": POSITIVE_LABELS}
+                "positive_labels": POSITIVE_LABELS},
+        pool=CPU_TASKS_POOL
     )
 
     task_check_svm_shuffled >> task_compute_svm_embeddings_prediction_shuffled
