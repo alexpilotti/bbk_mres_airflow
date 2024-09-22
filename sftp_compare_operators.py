@@ -14,24 +14,45 @@ class SFTPComparePathDatetimesSensor(BaseSensorOperator):
     def __init__(self, path1, path2, sftp_hook,
                  *args, **kwargs):
         super(SFTPComparePathDatetimesSensor, self).__init__(*args, **kwargs)
-        self.path1 = path1
-        self.path2 = path2
+
+        self.path1 = [path1] if isinstance(path1, str) else path1
+        self.path2 = [path2] if isinstance(path2, str) else path2
         self.sftp_hook = sftp_hook
 
     def poke(self, context):
-        if not self.sftp_hook.path_exists(self.path1):
-            raise exceptions.AirflowFailException(
-                f"Path does not exist: {self.path1}")
-        if not self.sftp_hook.path_exists(self.path2):
-            logger.info(f"Path does not exist: {self.path2}")
+        max_path1_time = None
+        path1 = None
+        for path in self.path1:
+            if not self.sftp_hook.path_exists(path):
+                raise exceptions.AirflowFailException(
+                    f"Path does not exist: {path}")
+
+            t = self.sftp_hook.get_mod_time(path)
+            logger.debug(f"Mod time of \"{path}\": {t}")
+
+            if not max_path1_time or t > max_path1_time:
+                max_path1_time = t
+                path1 = path
+
+        path2 = None
+        min_path2_time = None
+        for path in self.path2:
+            if not self.sftp_hook.path_exists(path):
+                logger.info(f"Path does not exist: {path}")
+                continue
+
+            t = self.sftp_hook.get_mod_time(path)
+            logger.debug(f"Mod time of \"{path}\": {t}")
+
+            if not min_path2_time or t < min_path2_time:
+                min_path2_time = t
+                path2 = path
+
+        if not min_path2_time:
             return True
 
-        t1 = self.sftp_hook.get_mod_time(self.path1)
-        t2 = self.sftp_hook.get_mod_time(self.path2)
-        logger.debug(f"t1: {t1} t2: {t2}")
-
-        if t1 <= t2:
+        if max_path1_time <= min_path2_time:
             raise exceptions.AirflowSkipException(
-                f"{self.path2} is more recent than {self.path1}")
+                f"{path2} is more recent than {path1}")
 
         return True
