@@ -12,6 +12,7 @@ from bbk_mres_airflow import sftp_compare_operators
 
 CPU_TASKS_POOL = "cpu_pool"
 SINGLE_GPU_POOL = "single_gpu_pool"
+UCL_GPU_POOL = "ucl_gpu_pool"
 
 MODELS_PATH = f"{common.DATA_PATH}/models"
 VENV_PATH = f"{common.BASE_PATH}/venv"
@@ -405,7 +406,8 @@ def create_rmarkdown_task(ssh_hook, task_id, rmd_path, output_path, chain):
 
 def _create_grid_engine_task(
         ssh_hook, task_id, cmd, mem_gb=4, num_gpus=2, gpu_type=None,
-        scratch_gb=50, trigger_rule="all_success", retries=5):
+        scratch_gb=50, trigger_rule="all_success", retries=5,
+        pool="default_pool"):
 
     template = jinja2.Environment().from_string(SGE_NATIVE_SPECS)
     native_specs = template.render(
@@ -420,7 +422,8 @@ def _create_grid_engine_task(
         retries=retries,
         params={"job_name": task_id,
                 "native_specs": native_specs,
-                "cmd": cmd}
+                "cmd": cmd},
+        pool=pool
     )
 
 
@@ -487,7 +490,8 @@ def create_ucl_training_tasks(
     training_task = _create_grid_engine_task(
         ucl_ssh_hook, training_task_id, cmd,
         num_gpus=UCL_TRAINING_NUM_GPUS,
-        gpu_type=UCL_TRAINING_GPU_TYPE)
+        gpu_type=UCL_TRAINING_GPU_TYPE,
+        pool=UCL_GPU_POOL)
 
     task_get_model_zip = SFTPOperator(
         task_id=f"ucl_download_zip_{task_model_name}_{chain}",
