@@ -16,7 +16,8 @@ SINGLE_GPU_POOL = "single_gpu_pool"
 MODELS_PATH = f"{common.DATA_PATH}/models"
 VENV_PATH = f"{common.BASE_PATH}/venv"
 
-SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
+INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
+SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered.parquet"
 
 TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split.parquet"
 TRAINING_OUTPUT_PATH = f"{MODELS_PATH}/" + "{model}_{chain}/"
@@ -51,6 +52,14 @@ UCL_TRAINING_GPU_TYPE = "a40"
 
 POSITIVE_LABELS = "S+ S1+ S2+"
 FOLD = 1
+
+MIN_SEQ_ID = 0.9
+
+REMOVE_SIMILAR_SEQUENCES_CMD = (
+    "source {{ params.venv_path }}/bin/activate && "
+    "python3 {{ params.base_path }}/attention_comparison/cli.py "
+    "remove-similar-sequences -i {{ params.input }} -o {{ params.output }} "
+    "-c {{ params.chain }} -m {{ params.min_seq_id }}")
 
 SPLIT_DATA_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
@@ -170,6 +179,37 @@ def create_attention_comparison_tasks(
     return task_check, task_attention_comparison
 
 
+@task_group(group_id="remove_similar_sequences")
+def create_remove_similar_sequences_tasks(ssh_hook, sftp_hook, chain):
+
+    input_path = INPUT_PATH
+    output_path = SPLIT_DATA_INPUT_PATH
+
+    task_check = sftp_compare_operators.SFTPComparePathDatetimesSensor(
+        task_id=f"check_remove_similar_sequences",
+        sftp_hook=sftp_hook,
+        path1=input_path,
+        path2=output_path,
+        timeout=0
+    )
+
+    task_remove_similar_sequences = SSHOperator(
+        task_id=f"remove_similar_sequences",
+        ssh_hook=ssh_hook,
+        command=REMOVE_SIMILAR_SEQUENCES_CMD,
+        params={"venv_path": VENV_PATH,
+                "base_path": common.BASE_PATH,
+                "input": input_path,
+                "output": output_path,
+                "chain": chain,
+                "min_seq_id": MIN_SEQ_ID},
+    )
+
+    task_check >> task_remove_similar_sequences
+
+    return task_check, task_remove_similar_sequences
+
+
 @task_group(group_id="split_data")
 def create_split_data_tasks(ssh_hook, sftp_hook):
 
@@ -182,7 +222,8 @@ def create_split_data_tasks(ssh_hook, sftp_hook):
         sftp_hook=sftp_hook,
         path1=input_path,
         path2=output_path,
-        timeout=0
+        timeout=0,
+        trigger_rule="none_failed"
     )
 
     task_split_data = SSHOperator(
