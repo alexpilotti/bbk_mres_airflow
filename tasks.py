@@ -144,6 +144,8 @@ def create_attention_comparison_tasks(
     input_path = ATTENTIONS_INPUT_PATH
     output_path = ATTENTIONS_OUTPUT_PATH.format(
         model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+    training_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
+        model=task_model_name, chain=chain)
 
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
@@ -153,7 +155,7 @@ def create_attention_comparison_tasks(
         task_id=("check_updated_attentions_"
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
         sftp_hook=sftp_hook,
-        path1=input_path,
+        path1=[input_path, training_path_check],
         path2=output_path,
         timeout=0,
         trigger_rule="none_failed"
