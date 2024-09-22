@@ -30,10 +30,10 @@ MODEL_NAME_FT_ESM2 = "ft-ESM2"
 CHAIN_H = "H"
 
 ATTENTIONS_RMD = f"{common.BASE_PATH}/attention_comparison.Rmd"
-ATTENTIONS_RMD_OUTPUT = f"{common.OUTPUT_PATH}/attention_comparison.html"
+ATTENTIONS_RMD_OUTPUT_FILENAME = "attention_comparison.html"
 
 CV_AUROC_RMD = f"{common.BASE_PATH}/cv_auroc.Rmd"
-CV_AUROC_RMD_OUTPUT = f"{common.OUTPUT_PATH}/cv_auroc.html"
+CV_AUROC_RMD_OUTPUT_FILENAME = "cv_auroc.html"
 
 EXTERNAL_MODELS_PATH = "~/kleinstein-lab-projects/Wang2024/models"
 BALM_MODEL_PATH = f"{
@@ -207,7 +207,8 @@ with DAG(
             ssh_hook,
             "process_attention_comparison_rmd",
             ATTENTIONS_RMD,
-            ATTENTIONS_RMD_OUTPUT,
+            common.OUTPUT_PATH,
+            ATTENTIONS_RMD_OUTPUT_FILENAME,
             CHAIN_H)
 
         process_attention_comparison_rmd << attention_tasks
@@ -216,7 +217,8 @@ with DAG(
             ssh_hook,
             "process_cv_auroc_rmd",
             CV_AUROC_RMD,
-            CV_AUROC_RMD_OUTPUT,
+            common.OUTPUT_PATH,
+            CV_AUROC_RMD_OUTPUT_FILENAME,
             CHAIN_H)
 
         process_cv_auroc_rmd << svm_embeddings_prediction_tasks
@@ -232,12 +234,12 @@ with DAG(
                 '<h3>Results</h3>'
                 '<ul>'
                 '  <li>'
-                '    <a href="{{ params.data_url }}/output/'
+                '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
                 'attention_comparison.html">Attention comparison</a>'
                 '  </li>'
                 '  <li>'
-                '    <a href="{{ params.data_url }}/output/cv_auroc.html">'
-                'CV AUROC</a>'
+                '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
+                'cv_auroc.html">CV AUROC</a>'
                 '  </li>'
                 '</ul>'
                 '<br/>'

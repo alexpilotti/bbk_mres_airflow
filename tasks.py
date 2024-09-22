@@ -112,9 +112,11 @@ RMARKDOWN_CMD = (
     "tmp_dir=$(/usr/bin/mktemp -d) && "
     "tmp_rmd_path=\"${tmp_dir}/$(basename '{{ params.rmd_path }}')\" && "
     "cp '{{ params.rmd_path }}' \"${tmp_rmd_path}\" && "
+    "mkdir -p '{{ params.output_base_dir }}/{{ run_id }}' && "
     "/usr/bin/Rscript -e "
     "\"rmarkdown::render('${tmp_rmd_path}', "
-    "output_file = '{{ params.output_path }}', "
+    "output_file = '{{ params.output_base_dir }}/{{ run_id }}/"
+    "{{ params.output_filename }}', "
     "params = list({{ params.params }}))\" && "
     "rm -rf \"${tmp_dir}\"")
 
@@ -394,13 +396,15 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
             task_compute_svm_embeddings_prediction_shuffled)
 
 
-def create_rmarkdown_task(ssh_hook, task_id, rmd_path, output_path, chain):
+def create_rmarkdown_task(ssh_hook, task_id, rmd_path, output_base_dir,
+                          output_filename, chain):
     return SSHOperator(
         task_id=task_id,
         ssh_hook=ssh_hook,
         command=RMARKDOWN_CMD,
         params={"rmd_path": rmd_path,
-                "output_path": output_path,
+                "output_base_dir": output_base_dir,
+                "output_filename": output_filename,
                 "params": f"chain='{chain}', data_path='{common.DATA_PATH}'"},
         trigger_rule="none_failed"
     )
