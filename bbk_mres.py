@@ -56,7 +56,7 @@ with DAG(
     default_args={
         "depends_on_past": False,
         "email": ["apilot02@student.bbk.ac.uk"],
-        "email_on_failure": True,
+        "email_on_failure": False,
         "email_on_retry": False,
         "retries": 2,
         "retry_delay": timedelta(seconds=5),
