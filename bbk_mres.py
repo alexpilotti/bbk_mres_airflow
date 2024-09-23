@@ -160,7 +160,7 @@ with DAG(
 
                     ucl_bbk_mres_git_reset_task >> ucl_training
                     ucl_sge_utils_git_reset_task >> ucl_training
-                    check_update_model >> get_tmp_input
+                    check_update_model >> ucl_put_input
                     ucl_put_input >> ucl_training
                     check_update_model >> ucl_training
                     last_training_task = unzip_model
