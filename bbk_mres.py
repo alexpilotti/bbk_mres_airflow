@@ -35,6 +35,9 @@ ATTENTIONS_RMD_OUTPUT_FILENAME = "attention_comparison.html"
 CV_AUROC_RMD = f"{common.BASE_PATH}/cv_auroc.Rmd"
 CV_AUROC_RMD_OUTPUT_FILENAME = "cv_auroc.html"
 
+CV_METRICS_RMD = f"{common.BASE_PATH}/metrics.Rmd"
+CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
+
 EXTERNAL_MODELS_PATH = "~/kleinstein-lab-projects/Wang2024/models"
 BALM_MODEL_PATH = f"{
     EXTERNAL_MODELS_PATH}/BALM-paired_LC-coherence_90-5-5-split_122222/"
@@ -134,6 +137,8 @@ with DAG(
 
     task_split_data >> get_tmp_input
 
+    last_training_tasks = []
+
     for (ucl_cluster, model, chain, model_path_pt, ucl_model_path,
          use_default_model_tokenizer, task_model_name) in task_info:
         if not task_model_name:
@@ -164,6 +169,8 @@ with DAG(
                     ucl_put_input >> ucl_training
                     check_update_model >> ucl_training
                     last_training_task = unzip_model
+
+            last_training_tasks.append(last_training_task)
 
             with TaskGroup(group_id=f"attentions") as tg1:
                 (check_updated_attentions_pt,
@@ -223,6 +230,16 @@ with DAG(
 
         process_cv_auroc_rmd << svm_embeddings_prediction_tasks
 
+        process_metrics_rmd = tasks.create_rmarkdown_task(
+            ssh_hook,
+            "metrics_rmd",
+            CV_METRICS_RMD,
+            common.OUTPUT_PATH,
+            CV_METRICS_RMD_OUTPUT_FILENAME,
+            CHAIN_H)
+
+        process_metrics_rmd << last_training_tasks
+
         send_success_email = EmailOperator(
             task_id="send_success_email",
             to="{{ var.value.email_to }}",
@@ -233,6 +250,10 @@ with DAG(
                 '</p>'
                 '<h3>Results</h3>'
                 '<ul>'
+                '  <li>'
+                '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
+                'metrics.html">Metrics</a>'
+                '  </li>'
                 '  <li>'
                 '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
                 'attention_comparison.html">Attention comparison</a>'
@@ -254,4 +275,6 @@ with DAG(
             )
 
         send_success_email << [
-            process_attention_comparison_rmd, process_cv_auroc_rmd]
+            process_attention_comparison_rmd,
+            process_cv_auroc_rmd,
+            process_metrics_rmd]
