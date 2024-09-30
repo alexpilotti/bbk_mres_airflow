@@ -24,6 +24,10 @@ TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split.parquet"
 TRAINING_OUTPUT_PATH = f"{MODELS_PATH}/" + "{model}_{chain}/"
 TRAINING_OUTPUT_PATH_CHECK = TRAINING_OUTPUT_PATH + "config.json"
 
+PREDICT_INPUT_PATH = f"{common.DATA_PATH}/S_FF_20240729_test.parquet"
+PREDICT_OUTPUT_PATH = (f"{common.DATA_PATH}/" +
+                       "predict_metrics_{model}_{chain}_{pre_trained}.json")
+
 PRE_TRAINED = "PT"
 FINE_TUNED = "FT"
 ATTENTIONS_INPUT_PATH = f"{common.DATA_PATH}/S_attentions.parquet"
@@ -72,6 +76,17 @@ TRAINING_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "fine-tuning -m {{ params.model }} "
+    "-i {{ params.input }} -o {{ params.output }} "
+    "-c {{ params.chain }}"
+    "{% if params.model_path %} -p {{ params.model_path }}"
+    "{% endif %}{% if params.use_default_model_tokenizer %} "
+    "--use-default-model-tokenizer"
+    "{% endif %}")
+
+PREDICT_CMD = (
+    "source {{ params.venv_path }}/bin/activate && "
+    "python3 {{ params.base_path }}/attention_comparison/cli.py "
+    "predict -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
     "-c {{ params.chain }}"
     "{% if params.model_path %} -p {{ params.model_path }}"
@@ -285,6 +300,50 @@ def create_training_tasks(ssh_hook, sftp_hook, model, chain,
     task_check >> task_train
 
     return task_check, task_train
+
+
+def create_predict_tasks(ssh_hook, sftp_hook, model, chain,
+                         model_path=None, use_default_model_tokenizer=None,
+                         task_model_name=None, pre_trained=True):
+
+    pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
+
+    input_path = PREDICT_INPUT_PATH
+    output_path = PREDICT_OUTPUT_PATH.format(
+        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+
+    if not pre_trained:
+        model_path = TRAINING_OUTPUT_PATH.format(
+            model=task_model_name, chain=chain)
+
+    task_check = sftp_compare_operators.SFTPComparePathDatetimesSensor(
+        task_id=(f"check_update_predict_metrics_"
+                 f"{task_model_name}_{chain}_{pre_trained_str}"),
+        sftp_hook=sftp_hook,
+        path1=input_path,
+        path2=output_path,
+        timeout=0,
+        trigger_rule="none_failed"
+    )
+
+    task_predict = SSHOperator(
+        task_id=f"predict_{task_model_name}_{chain}_{pre_trained_str}",
+        ssh_hook=ssh_hook,
+        command=PREDICT_CMD,
+        params={"venv_path": VENV_PATH,
+                "base_path": common.BASE_PATH,
+                "model": model,
+                "input": input_path,
+                "output": output_path,
+                "chain": chain,
+                "model_path": model_path,
+                "use_default_model_tokenizer": use_default_model_tokenizer},
+        pool=SINGLE_GPU_POOL
+    )
+
+    task_check >> task_predict
+
+    return task_check, task_predict
 
 
 def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,

@@ -137,7 +137,7 @@ with DAG(
 
     task_split_data >> get_tmp_input
 
-    last_training_tasks = []
+    predict_tasks = []
 
     for (ucl_cluster, model, chain, model_path_pt, ucl_model_path,
          use_default_model_tokenizer, task_model_name) in task_info:
@@ -170,7 +170,17 @@ with DAG(
                     check_update_model >> ucl_training
                     last_training_task = unzip_model
 
-            last_training_tasks.append(last_training_task)
+            with TaskGroup(group_id=f"predict") as tg1:
+                (check_update_predict_metrics_pt,
+                predict_metrics_pt) = tasks.create_predict_tasks(
+                    ssh_hook, sftp_hook, model, chain, model_path_pt,
+                    use_default_model_tokenizer, task_model_name)
+
+                (check_update_predict_metrics_ft,
+                predict_metrics_ft) = tasks.create_predict_tasks(
+                    ssh_hook, sftp_hook, model, chain, None,
+                    use_default_model_tokenizer, task_model_name,
+                    pre_trained=False)
 
             with TaskGroup(group_id=f"attentions") as tg1:
                 (check_updated_attentions_pt,
@@ -200,11 +210,12 @@ with DAG(
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
-                last_training_task >> check_updated_attentions_ft
-                last_training_task >> check_updated_embeddings_ft
+            last_training_task >> check_update_predict_metrics_ft
+            last_training_task >> check_updated_attentions_ft
+            last_training_task >> check_updated_embeddings_ft
 
+            predict_tasks.extend([predict_metrics_pt, predict_metrics_ft])
             attention_tasks.extend([attentions_pt, attentions_ft])
-
             svm_embeddings_prediction_tasks.extend(
                 [svm_emb_pred_pt, svm_emb_pred_pt_shuffled,
                  svm_emb_pred_ft, svm_emb_pred_ft_shuffled])
@@ -238,7 +249,7 @@ with DAG(
             CV_METRICS_RMD_OUTPUT_FILENAME,
             CHAIN_H)
 
-        process_metrics_rmd << last_training_tasks
+        process_metrics_rmd << predict_tasks
 
         send_success_email = EmailOperator(
             task_id="send_success_email",
