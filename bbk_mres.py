@@ -190,7 +190,7 @@ with DAG(
 
                 (check_updated_attentions_ft,
                  attentions_ft) = tasks.create_attention_comparison_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path_pt,
+                    ssh_hook, sftp_hook, model, chain, None,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
@@ -206,7 +206,7 @@ with DAG(
                  get_embeddings_ft, check_svm_emb_pred_ft,
                  svm_emb_pred_ft, check_svm_emb_pred_ft_shuffled,
                  svm_emb_pred_ft_shuffled) = tasks.create_embeddings_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path_pt,
+                    ssh_hook, sftp_hook, model, chain, None,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
