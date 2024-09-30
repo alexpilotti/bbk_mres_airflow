@@ -172,12 +172,12 @@ with DAG(
 
             with TaskGroup(group_id=f"predict") as tg1:
                 (check_update_predict_metrics_pt,
-                predict_metrics_pt) = tasks.create_predict_tasks(
+                 predict_metrics_pt) = tasks.create_predict_tasks(
                     ssh_hook, sftp_hook, model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name)
 
                 (check_update_predict_metrics_ft,
-                predict_metrics_ft) = tasks.create_predict_tasks(
+                 predict_metrics_ft) = tasks.create_predict_tasks(
                     ssh_hook, sftp_hook, model, chain, None,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
