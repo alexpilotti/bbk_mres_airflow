@@ -121,15 +121,17 @@ with DAG(
     attention_tasks = []
     svm_embeddings_prediction_tasks = []
 
-    (task_check_remove_similar_seqs,
-     task_remove_similar_seqs) = tasks.create_remove_similar_sequences_tasks(
+    (task_check_remove_sim_seqs_train,
+     task_remove_sim_seqs_train,
+     task_check_remove_sim_seqs_test,
+     task_remove_sim_seqs_test) = tasks.create_remove_similar_sequences_tasks(
         ssh_hook, sftp_hook, CHAIN_H)
 
     (task_check_split_data,
      task_split_data) = tasks.create_split_data_tasks(
          ssh_hook, sftp_hook)
 
-    task_remove_similar_seqs >> task_check_split_data
+    task_remove_sim_seqs_train >> task_check_split_data
 
     (get_tmp_input,
      ucl_put_input) = tasks.create_ucl_upload_sequences_task(
@@ -209,6 +211,10 @@ with DAG(
                     ssh_hook, sftp_hook, model, chain, None,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
+
+            task_remove_sim_seqs_test >> [
+                check_update_predict_metrics_pt,
+                check_update_predict_metrics_ft]
 
             last_training_task >> check_update_predict_metrics_ft
             last_training_task >> check_updated_attentions_ft

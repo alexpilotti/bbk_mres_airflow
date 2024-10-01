@@ -24,7 +24,9 @@ TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split.parquet"
 TRAINING_OUTPUT_PATH = f"{MODELS_PATH}/" + "{model}_{chain}/"
 TRAINING_OUTPUT_PATH_CHECK = TRAINING_OUTPUT_PATH + "config.json"
 
-PREDICT_INPUT_PATH = f"{common.DATA_PATH}/S_FF_20240729_test.parquet"
+REMOVE_SIMILAR_SEQUENCES_TEST_INPUT_PATH = (
+    f"{common.DATA_PATH}/S_FF_20240729_test.parquet")
+PREDICT_INPUT_PATH = f"{common.DATA_PATH}/S_FF_20240729_test_filtered.parquet"
 PREDICT_OUTPUT_PATH = (f"{common.DATA_PATH}/" +
                        "predict_metrics_{model}_{chain}_{pre_trained}.json")
 
@@ -64,6 +66,7 @@ REMOVE_SIMILAR_SEQUENCES_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "remove-similar-sequences -i {{ params.input }} -o {{ params.output }} "
+    "{% if params.target %} -t {{ params.target }} {% endif %}"
     "-c {{ params.chain }} -m {{ params.min_seq_id }}")
 
 SPLIT_DATA_CMD = (
@@ -202,32 +205,62 @@ def create_attention_comparison_tasks(
 @task_group(group_id="remove_similar_sequences")
 def create_remove_similar_sequences_tasks(ssh_hook, sftp_hook, chain):
 
-    input_path = INPUT_PATH
-    output_path = SPLIT_DATA_INPUT_PATH
+    train_input_path = INPUT_PATH
+    train_output_path = SPLIT_DATA_INPUT_PATH
+    test_target_path = SPLIT_DATA_INPUT_PATH
+    test_input_path = REMOVE_SIMILAR_SEQUENCES_TEST_INPUT_PATH
+    test_output_path = PREDICT_INPUT_PATH
 
-    task_check = sftp_compare_operators.SFTPComparePathDatetimesSensor(
-        task_id=f"check_remove_similar_sequences",
+    task_check_train = sftp_compare_operators.SFTPComparePathDatetimesSensor(
+        task_id=f"check_remove_similar_sequences_train",
         sftp_hook=sftp_hook,
-        path1=input_path,
-        path2=output_path,
-        timeout=0
+        path1=train_input_path,
+        path2=train_output_path,
+        timeout=0,
+        trigger_rule="none_failed"
     )
 
-    task_remove_similar_sequences = SSHOperator(
-        task_id=f"remove_similar_sequences",
+    task_remove_similar_sequences_train = SSHOperator(
+        task_id=f"remove_similar_sequences_train",
         ssh_hook=ssh_hook,
         command=REMOVE_SIMILAR_SEQUENCES_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
-                "input": input_path,
-                "output": output_path,
+                "input": train_input_path,
+                "output": train_output_path,
                 "chain": chain,
                 "min_seq_id": MIN_SEQ_ID},
     )
 
-    task_check >> task_remove_similar_sequences
+    task_check_train >> task_remove_similar_sequences_train
 
-    return task_check, task_remove_similar_sequences
+    task_check_test = sftp_compare_operators.SFTPComparePathDatetimesSensor(
+        task_id=f"check_remove_similar_sequences_test",
+        sftp_hook=sftp_hook,
+        path1=[test_input_path, test_target_path],
+        path2=test_output_path,
+        timeout=0,
+        trigger_rule="none_failed"
+    )
+
+    task_remove_similar_sequences_test = SSHOperator(
+        task_id=f"remove_similar_sequences_test",
+        ssh_hook=ssh_hook,
+        command=REMOVE_SIMILAR_SEQUENCES_CMD,
+        params={"venv_path": VENV_PATH,
+                "base_path": common.BASE_PATH,
+                "input": test_input_path,
+                "target": test_target_path,
+                "output": test_output_path,
+                "chain": chain,
+                "min_seq_id": MIN_SEQ_ID},
+    )
+
+    task_remove_similar_sequences_train >> task_check_test
+    task_check_test >> task_remove_similar_sequences_test
+
+    return (task_check_train, task_remove_similar_sequences_train,
+            task_check_test, task_remove_similar_sequences_test)
 
 
 @task_group(group_id="split_data")
