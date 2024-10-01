@@ -542,7 +542,8 @@ def create_ucl_training_tasks(
         sftp_hook=sftp_hook,
         path1=input_path,
         path2=output_path_check,
-        timeout=0
+        timeout=0,
+        trigger_rule="none_failed"
     )
 
     template = jinja2.Environment().from_string(UCL_TRAINING_CMD)
