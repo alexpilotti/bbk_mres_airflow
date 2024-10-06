@@ -9,11 +9,13 @@ from airflow.providers.sftp.operators.sftp import SFTPOperator
 from airflow.providers.ssh.operators.ssh import SSHOperator
 
 from bbk_mres_airflow import common
+from bbk_mres_airflow import openstack_operators
 from bbk_mres_airflow import sftp_compare_operators
 
 CPU_TASKS_POOL = "cpu_pool"
 SINGLE_GPU_POOL = "single_gpu_pool"
 UCL_GPU_POOL = "ucl_gpu_pool"
+OPENSTACK_GPU_POOL = "openstack_gpu_pool"
 
 MODELS_PATH = f"{common.DATA_PATH}/models"
 VENV_PATH = f"{common.BASE_PATH}/venv"
@@ -74,6 +76,16 @@ MAX_ATTENTION_SEQUENCES = 200
 
 MIN_SEQ_ID = 0.9
 
+OPENSTACK_AUTH_URL = "http://10.7.231.224/identity"
+OPENSTACK_IMAGE_NAME = "ubuntu-22.04-bbk-mres"
+OPENSTACK_FLAVOR_NAME = "vgpu.large"
+OPENSTACK_KEYPAIR = "bbk"
+OPENSTACK_NETWORK_NAME = "private"
+OPENSTACK_VOLUME_SIZE_GB = 30
+OPENSTACK_FIP_NETWORK_NAME = "public"
+OPENSTACK_SERVER_USERNAME = "ubuntu"
+
+
 REMOVE_SIMILAR_SEQUENCES_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
@@ -96,6 +108,8 @@ UNDERSAMPLE_CMD = (
     "{{ params.target_dataset }}{% endif %}")
 
 TRAINING_CMD = (
+    "sshfs bbk@10.7.231.224:/data/bbk-mres/data /data/bbk-mres/data && "
+    "cd {{ params.base_path }} && git pull && "
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "fine-tuning -m {{ params.model }} "
@@ -107,6 +121,8 @@ TRAINING_CMD = (
     "{% endif %}")
 
 PREDICT_CMD = (
+    "sshfs bbk@10.7.231.224:/data/bbk-mres/data /data/bbk-mres/data && "
+    "cd {{ params.base_path }} && git pull && "
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "predict -m {{ params.model }} "
@@ -118,6 +134,8 @@ PREDICT_CMD = (
     "{% endif %}")
 
 ATTENTIONS_CMD = (
+    "sshfs bbk@10.7.231.224:/data/bbk-mres/data /data/bbk-mres/data && "
+    "cd {{ params.base_path }} && git pull && "
     "source {{ params.venv_path }}/bin/activate && python3 "
     "{{ params.base_path }}/attention_comparison/cli.py "
     "attentions -m {{ params.model }} -i {{ params.input }} "
@@ -129,6 +147,8 @@ ATTENTIONS_CMD = (
     "{% endif %}")
 
 EMBEDDINGS_CMD = (
+    "sshfs bbk@10.7.231.224:/data/bbk-mres/data /data/bbk-mres/data && "
+    "cd {{ params.base_path }} && git pull && "
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "embeddings -m {{ params.model }} "
@@ -208,10 +228,26 @@ def create_attention_comparison_tasks(
         trigger_rule="none_failed"
     )
 
-    task_attention_comparison = SSHOperator(
+    task_attention_comparison = openstack_operators.OpenStackSSHOperator(
         task_id=("attention_comparison_"
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
-        ssh_hook=ssh_hook,
+        instance_name=("attention_comparison_"
+                       f"{task_model_name}_{chain}_{pre_trained_str}"),
+        auth_url=OPENSTACK_AUTH_URL,
+        username=Variable.get("openstack_username"),
+        password=Variable.get("openstack_password"),
+        project_name=Variable.get("openstack_project_name"),
+        user_domain_name=Variable.get("openstack_user_domain_name"),
+        project_domain_name=Variable.get("openstack_project_domain_name"),
+        image_name=OPENSTACK_IMAGE_NAME,
+        flavor_name=OPENSTACK_FLAVOR_NAME,
+        keypair_name=OPENSTACK_KEYPAIR,
+        network_name=OPENSTACK_NETWORK_NAME,
+        volume_size_gb=OPENSTACK_VOLUME_SIZE_GB,
+        floating_network_name=OPENSTACK_FIP_NETWORK_NAME,
+        server_username=OPENSTACK_SERVER_USERNAME,
+        key_file=Variable.get("openstack_key_file"),
+        pool=OPENSTACK_GPU_POOL,
         command=ATTENTIONS_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
@@ -221,8 +257,7 @@ def create_attention_comparison_tasks(
                 "max_sequences": max_sequences,
                 "chain": chain,
                 "model_path": model_path,
-                "use_default_model_tokenizer": use_default_model_tokenizer},
-        pool=SINGLE_GPU_POOL
+                "use_default_model_tokenizer": use_default_model_tokenizer}
     )
 
     task_check >> task_attention_comparison
@@ -257,6 +292,7 @@ def create_remove_similar_sequences_tasks(ssh_hook, sftp_hook, chain):
                 "input": train_input_path,
                 "output": train_output_path,
                 "chain": chain,
+                "target": None,
                 "min_seq_id": MIN_SEQ_ID},
     )
 
@@ -436,9 +472,23 @@ def create_training_tasks(ssh_hook, sftp_hook, model, chain,
         trigger_rule="none_failed"
     )
 
-    task_train = SSHOperator(
+    task_train = openstack_operators.OpenStackSSHOperator(
         task_id=f"training_{task_model_name}_{chain}",
-        ssh_hook=ssh_hook,
+        auth_url=OPENSTACK_AUTH_URL,
+        username=Variable.get("openstack_username"),
+        password=Variable.get("openstack_password"),
+        project_name=Variable.get("openstack_project_name"),
+        user_domain_name=Variable.get("openstack_user_domain_name"),
+        project_domain_name=Variable.get("openstack_project_domain_name"),
+        instance_name=f"training_{task_model_name}_{chain}",
+        image_name=OPENSTACK_IMAGE_NAME,
+        flavor_name=OPENSTACK_FLAVOR_NAME,
+        keypair_name=OPENSTACK_KEYPAIR,
+        network_name=OPENSTACK_NETWORK_NAME,
+        volume_size_gb=OPENSTACK_VOLUME_SIZE_GB,
+        floating_network_name=OPENSTACK_FIP_NETWORK_NAME,
+        server_username=OPENSTACK_SERVER_USERNAME,
+        key_file=Variable.get("openstack_key_file"),
         command=TRAINING_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
@@ -448,7 +498,7 @@ def create_training_tasks(ssh_hook, sftp_hook, model, chain,
                 "chain": chain,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer},
-        pool=SINGLE_GPU_POOL
+        pool=OPENSTACK_GPU_POOL
     )
 
     task_check >> task_train
@@ -480,9 +530,23 @@ def create_predict_tasks(ssh_hook, sftp_hook, model, chain,
         trigger_rule="none_failed"
     )
 
-    task_predict = SSHOperator(
+    task_predict = openstack_operators.OpenStackSSHOperator(
         task_id=f"predict_{task_model_name}_{chain}_{pre_trained_str}",
-        ssh_hook=ssh_hook,
+        instance_name=f"predict_{task_model_name}_{chain}_{pre_trained_str}",
+        auth_url=OPENSTACK_AUTH_URL,
+        username=Variable.get("openstack_username"),
+        password=Variable.get("openstack_password"),
+        project_name=Variable.get("openstack_project_name"),
+        user_domain_name=Variable.get("openstack_user_domain_name"),
+        project_domain_name=Variable.get("openstack_project_domain_name"),
+        image_name=OPENSTACK_IMAGE_NAME,
+        flavor_name=OPENSTACK_FLAVOR_NAME,
+        keypair_name=OPENSTACK_KEYPAIR,
+        network_name=OPENSTACK_NETWORK_NAME,
+        volume_size_gb=OPENSTACK_VOLUME_SIZE_GB,
+        floating_network_name=OPENSTACK_FIP_NETWORK_NAME,
+        server_username=OPENSTACK_SERVER_USERNAME,
+        key_file=Variable.get("openstack_key_file"),
         command=PREDICT_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
@@ -492,7 +556,7 @@ def create_predict_tasks(ssh_hook, sftp_hook, model, chain,
                 "chain": chain,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer},
-        pool=SINGLE_GPU_POOL
+        pool=OPENSTACK_GPU_POOL
     )
 
     task_check >> task_predict
@@ -524,9 +588,24 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
         trigger_rule="none_failed"
     )
 
-    task_embeddings = SSHOperator(
+    task_embeddings = openstack_operators.OpenStackSSHOperator(
         task_id=f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}",
-        ssh_hook=ssh_hook,
+        instance_name=f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}",
+        auth_url=OPENSTACK_AUTH_URL,
+        username=Variable.get("openstack_username"),
+        password=Variable.get("openstack_password"),
+        project_name=Variable.get("openstack_project_name"),
+        user_domain_name=Variable.get("openstack_user_domain_name"),
+        project_domain_name=Variable.get("openstack_project_domain_name"),
+        image_name=OPENSTACK_IMAGE_NAME,
+        flavor_name=OPENSTACK_FLAVOR_NAME,
+        keypair_name=OPENSTACK_KEYPAIR,
+        network_name=OPENSTACK_NETWORK_NAME,
+        volume_size_gb=OPENSTACK_VOLUME_SIZE_GB,
+        floating_network_name=OPENSTACK_FIP_NETWORK_NAME,
+        server_username=OPENSTACK_SERVER_USERNAME,
+        key_file=Variable.get("openstack_key_file"),
+        pool=OPENSTACK_GPU_POOL,
         command=EMBEDDINGS_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
@@ -535,8 +614,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
                 "output": embeddings_path,
                 "chain": chain,
                 "model_path": model_path,
-                "use_default_model_tokenizer": use_default_model_tokenizer},
-        pool=SINGLE_GPU_POOL
+                "use_default_model_tokenizer": use_default_model_tokenizer}
     )
 
     svm_output_path = SVM_EMBEDDINGS_PREDICTION_OUTPUT_PATH.format(
