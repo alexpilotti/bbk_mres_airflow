@@ -64,7 +64,7 @@ class OpenStackSSHOperator(ssh_operators.SSHOperator):
 
             ssh_hook = ssh_hooks.SSHHook(
                 username=self._server_username, key_file=self._key_file,
-                remote_host=remote_address)
+                remote_host=remote_address, cmd_timeout=120, conn_timeout=120)
             self.ssh_hook = ssh_hook
 
             super().execute(context)
