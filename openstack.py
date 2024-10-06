@@ -22,6 +22,9 @@ def get_connection(auth_url, username, password, project_name,
 
 def get_floating_ip(conn, floating_network_name):
     network = conn.network.find_network(floating_network_name)
+    if not network:
+        raise ValueError(
+            f"Floating IP network \"{floating_network_name}\" not found")
 
     project_name = conn.auth["project_name"]
     project = conn.identity.find_project(project_name)
@@ -62,38 +65,31 @@ def create_server(conn, instance_name, image_name, flavor_name, keypair_name,
     logger.info(f"Creating volume \"{volume_name}\" "
                 f"with size {volume_size_gb} GB")
 
-    volume = conn.block_storage.create_volume(
-        size=volume_size_gb,
-        name=volume_name,
-        image_id=image.id
-    )
+    server = None
 
-    logger.info(f"Waiting for volume \"{volume_name}\"")
-    volume = conn.block_storage.wait_for_status(
-        volume, status='available', failures=['error'], interval=2,
-        wait=VOLUME_WAIT_TIME)
+    try:
+        logger.info(f"Creating server \"{instance_name}\"")
+        server = conn.compute.create_server(
+            name=instance_name,
+            image_id=image.id,
+            flavor_id=flavor.id,
+            networks=[{"uuid": network.id}],
+            key_name=keypair_name
+        )
 
-    block_device_mapping = [{
-        'boot_index': 0,
-        'uuid': volume.id,
-        'source_type': 'volume',
-        'destination_type': 'volume',
-        'delete_on_termination': True
-    }]
+        logger.info(f"Waiting for server \"{server.name}\" "
+                    f"with id: \"{server.id}\"")
 
-    logger.info(f"Creating server \"{instance_name}\"")
-    server = conn.compute.create_server(
-        name=instance_name,
-        image_id=image.id,
-        flavor_id=flavor.id,
-        networks=[{"uuid": network.id}],
-        key_name=keypair_name,
-        block_device_mapping_v2=block_device_mapping
-    )
-
-    logger.info(f"Waiting for server \"{server.name}\" "
-                f"with id: \"{server.id}\"")
-    return conn.compute.wait_for_server(server, wait=SERVER_WAIT_TIME)
+        try:
+            return conn.compute.wait_for_server(server, wait=SERVER_WAIT_TIME)
+        except openstack.exceptions.ResourceFailure as ex:
+            server = conn.compute.find_server(server.id)
+            if server:
+                logger.error(f"Server error: {server.fault}")
+            raise ex
+    except:
+        if server is not None:
+            conn.compute.delete_server(server)
 
 
 def attach_floating_ip(conn, server_id, floating_ip):
@@ -109,5 +105,25 @@ def attach_floating_ip(conn, server_id, floating_ip):
 
 def delete_server(conn, server_id):
     server = conn.compute.find_server(server_id)
-    logger.info(f"Deleting server \"{server.id}\"")
-    conn.compute.delete_server(server)
+
+    volume_attachments = None
+    if server:
+        volume_attachments = conn.compute.volume_attachments(server)
+        try:
+            logger.info(f"Deleting server \"{server.id}\"")
+            conn.compute.delete_server(server)
+        except openstack.exceptions.NotFoundException:
+            logger.info(f"Server {attachment.volume_id} already deleted")
+
+    if volume_attachments:
+        for attachment in volume_attachments:
+            try:
+                volume = conn.block_storage.get_volume(attachment.volume_id)
+                volume = conn.block_storage.wait_for_status(
+                    volume, status='available', failures=['error'], interval=2,
+                    wait=120)
+                if volume:
+                    logger.info(f"Deleting volume \"{volume.id}\"")
+                    conn.block_storage.delete_volume(volume)
+            except openstack.exceptions.NotFoundException:
+                logger.debug(f"Volume {attachment.volume_id} already deleted")
