@@ -90,6 +90,7 @@ def create_server(conn, instance_name, image_name, flavor_name, keypair_name,
     except:
         if server is not None:
             conn.compute.delete_server(server)
+        raise
 
 
 def attach_floating_ip(conn, server_id, floating_ip):
