@@ -17,6 +17,7 @@ SINGLE_GPU_POOL = "single_gpu_pool"
 UCL_GPU_POOL = "ucl_gpu_pool"
 OPENSTACK_GPU_POOL = "openstack_gpu_pool"
 
+CACHE_PATH = f"{common.DATA_PATH}/cache"
 MODELS_PATH = f"{common.DATA_PATH}/models"
 VENV_PATH = f"{common.BASE_PATH}/venv"
 
@@ -85,7 +86,6 @@ OPENSTACK_VOLUME_SIZE_GB = 30
 OPENSTACK_FIP_NETWORK_NAME = "public"
 OPENSTACK_SERVER_USERNAME = "ubuntu"
 
-
 REMOVE_SIMILAR_SEQUENCES_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
@@ -111,6 +111,7 @@ TRAINING_CMD = (
     "sshfs bbk@10.7.231.224:/data/bbk-mres/data /data/bbk-mres/data && "
     "cd {{ params.base_path }} && git pull && "
     "source {{ params.venv_path }}/bin/activate && "
+    "HF_HOME={{ params.cache_path }} python3 "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "fine-tuning -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
@@ -124,7 +125,8 @@ PREDICT_CMD = (
     "sshfs bbk@10.7.231.224:/data/bbk-mres/data /data/bbk-mres/data && "
     "cd {{ params.base_path }} && git pull && "
     "source {{ params.venv_path }}/bin/activate && "
-    "python3 {{ params.base_path }}/attention_comparison/cli.py "
+    "HF_HOME={{ params.cache_path }} python3 "
+    "{{ params.base_path }}/attention_comparison/cli.py "
     "predict -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
     "-c {{ params.chain }}"
@@ -136,7 +138,8 @@ PREDICT_CMD = (
 ATTENTIONS_CMD = (
     "sshfs bbk@10.7.231.224:/data/bbk-mres/data /data/bbk-mres/data && "
     "cd {{ params.base_path }} && git pull && "
-    "source {{ params.venv_path }}/bin/activate && python3 "
+    "source {{ params.venv_path }}/bin/activate && "
+    "HF_HOME={{ params.cache_path }} python3 "
     "{{ params.base_path }}/attention_comparison/cli.py "
     "attentions -m {{ params.model }} -i {{ params.input }} "
     "-o {{ params.output }} -c {{ params.chain }}"
@@ -150,7 +153,8 @@ EMBEDDINGS_CMD = (
     "sshfs bbk@10.7.231.224:/data/bbk-mres/data /data/bbk-mres/data && "
     "cd {{ params.base_path }} && git pull && "
     "source {{ params.venv_path }}/bin/activate && "
-    "python3 {{ params.base_path }}/attention_comparison/cli.py "
+    "HF_HOME={{ params.cache_path }} python3 "
+    "{{ params.base_path }}/attention_comparison/cli.py "
     "embeddings -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
     "-c {{ params.chain }}"
@@ -251,6 +255,7 @@ def create_attention_comparison_tasks(
         command=ATTENTIONS_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
+                "cache_path": CACHE_PATH,
                 "model": model,
                 "input": input_path,
                 "output": output_path,
@@ -492,6 +497,7 @@ def create_training_tasks(ssh_hook, sftp_hook, model, chain,
         command=TRAINING_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
+                "cache_path": CACHE_PATH,
                 "model": model,
                 "input": input_path,
                 "output": output_path,
@@ -550,6 +556,7 @@ def create_predict_tasks(ssh_hook, sftp_hook, model, chain,
         command=PREDICT_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
+                "cache_path": CACHE_PATH,
                 "model": model,
                 "input": input_path,
                 "output": output_path,
@@ -609,6 +616,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
         command=EMBEDDINGS_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
+                "cache_path": CACHE_PATH,
                 "model": model,
                 "input": input_path,
                 "output": embeddings_path,
