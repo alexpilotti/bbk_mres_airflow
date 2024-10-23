@@ -41,7 +41,7 @@ CV_AUROC_RMD_OUTPUT_FILENAME = "cv_auroc.html"
 CV_METRICS_RMD = f"{common.BASE_PATH}/metrics.Rmd"
 CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
 
-EXTERNAL_MODELS_PATH = "~/kleinstein-lab-projects/Wang2024/models"
+EXTERNAL_MODELS_PATH = f"{common.DATA_PATH}/pre_trained_models"
 BALM_MODEL_PATH = f"{
     EXTERNAL_MODELS_PATH}/BALM-paired_LC-coherence_90-5-5-split_122222/"
 FT_ESM2_MODEL_PATH = f"{EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/"
@@ -52,7 +52,7 @@ UCL_EXTERNAL_MODELS_PATH = (
 UCL_FT_ESM2_MODEL_PATH = (
     f"{UCL_EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/")
 
-DATA_URL = "https://bbk-mres.pilotti.it/data"
+DATA_URL = "http://10.7.231.224:81/data"
 
 
 with DAG(
