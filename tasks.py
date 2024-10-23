@@ -1,7 +1,7 @@
+import datetime
 import os
 
 import jinja2
-
 
 from airflow.decorators import task_group
 from airflow.models import Variable
@@ -85,6 +85,9 @@ OPENSTACK_NETWORK_NAME = "private"
 OPENSTACK_VOLUME_SIZE_GB = 30
 OPENSTACK_FIP_NETWORK_NAME = "public"
 OPENSTACK_SERVER_USERNAME = "ubuntu"
+
+OPENSTACK_RETRIES = 6
+OPENSTACK_RETRY_DELAY = datetime.timedelta(seconds=10)
 
 REMOVE_SIMILAR_SEQUENCES_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
@@ -233,6 +236,8 @@ def create_attention_comparison_tasks(
     )
 
     task_attention_comparison = openstack_operators.OpenStackSSHOperator(
+        retries=OPENSTACK_RETRIES,
+        retry_delay=OPENSTACK_RETRY_DELAY,
         task_id=("attention_comparison_"
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
         instance_name=("attention_comparison_"
@@ -478,6 +483,8 @@ def create_training_tasks(ssh_hook, sftp_hook, model, chain,
     )
 
     task_train = openstack_operators.OpenStackSSHOperator(
+        retries=OPENSTACK_RETRIES,
+        retry_delay=OPENSTACK_RETRY_DELAY,
         task_id=f"training_{task_model_name}_{chain}",
         auth_url=OPENSTACK_AUTH_URL,
         username=Variable.get("openstack_username"),
@@ -537,6 +544,8 @@ def create_predict_tasks(ssh_hook, sftp_hook, model, chain,
     )
 
     task_predict = openstack_operators.OpenStackSSHOperator(
+        retries=OPENSTACK_RETRIES,
+        retry_delay=OPENSTACK_RETRY_DELAY,
         task_id=f"predict_{task_model_name}_{chain}_{pre_trained_str}",
         instance_name=f"predict_{task_model_name}_{chain}_{pre_trained_str}",
         auth_url=OPENSTACK_AUTH_URL,
@@ -596,6 +605,8 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
     )
 
     task_embeddings = openstack_operators.OpenStackSSHOperator(
+        retries=OPENSTACK_RETRIES,
+        retry_delay=OPENSTACK_RETRY_DELAY,
         task_id=f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}",
         instance_name=f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}",
         auth_url=OPENSTACK_AUTH_URL,
