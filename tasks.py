@@ -584,11 +584,11 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
                             model_path=None, use_default_model_tokenizer=None,
                             task_model_name=None, pre_trained=True):
 
-    pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
+    pre_tr_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
 
     input_path = SPLIT_DATA_INPUT_PATH.format(chain=chain)
     embeddings_path = EMBEDDINGS_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, pre_trained=pre_tr_str)
 
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
@@ -596,7 +596,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
 
     task_check_emb = sftp_compare_operators.SFTPComparePathDatetimesSensor(
         task_id=("check_update_embeddings_"
-                 f"{task_model_name}_{chain}_{pre_trained_str}"),
+                 f"{task_model_name}_{chain}_{pre_tr_str}"),
         sftp_hook=sftp_hook,
         path1=input_path,
         path2=embeddings_path,
@@ -607,8 +607,8 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
     task_embeddings = openstack_operators.OpenStackSSHOperator(
         retries=OPENSTACK_RETRIES,
         retry_delay=OPENSTACK_RETRY_DELAY,
-        task_id=f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}",
-        instance_name=f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}",
+        task_id=f"get_embeddings_{task_model_name}_{chain}_{pre_tr_str}",
+        instance_name=f"get_embeddings_{task_model_name}_{chain}_{pre_tr_str}",
         auth_url=OPENSTACK_AUTH_URL,
         username=Variable.get("openstack_username"),
         password=Variable.get("openstack_password"),
@@ -637,11 +637,11 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
     )
 
     svm_output_path = SVM_EMBEDDINGS_PREDICTION_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, pre_trained=pre_tr_str)
 
     task_check_svm = sftp_compare_operators.SFTPComparePathDatetimesSensor(
         task_id=("check_update_svm_embeddings_prediction_"
-                 f"{task_model_name}_{chain}_{pre_trained_str}"),
+                 f"{task_model_name}_{chain}_{pre_tr_str}"),
         sftp_hook=sftp_hook,
         path1=[input_path, embeddings_path],
         path2=svm_output_path,
@@ -651,7 +651,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
 
     task_compute_svm_embeddings_prediction = SSHOperator(
         task_id=("compute_svm_embeddings_prediction_" +
-                 f"{task_model_name}_{chain}_{pre_trained_str}"),
+                 f"{task_model_name}_{chain}_{pre_tr_str}"),
         ssh_hook=ssh_hook,
         command=SVM_EMBEDDINGS_PREDICTION_CMD,
         params={"venv_path": VENV_PATH,
@@ -669,12 +669,12 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
         SVM_EMBEDDINGS_SHUFFLED_PREDICTION_INPUT_PATH.format(chain=chain))
     svm_output_path_shuffled = (
         SVM_EMBEDDINGS_SHUFFLED_PREDICTION_OUTPUT_PATH.format(
-            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+            model=task_model_name, chain=chain, pre_trained=pre_tr_str))
 
     task_check_svm_shuffled = (
         sftp_compare_operators.SFTPComparePathDatetimesSensor(
             task_id=("check_update_svm_embeddings_prediction_"
-                     f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
+                     f"{task_model_name}_{chain}_{pre_tr_str}_shuffled"),
             sftp_hook=sftp_hook,
             path1=[svm_input_path_shuffled, embeddings_path],
             path2=svm_output_path_shuffled,
@@ -684,7 +684,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
 
     task_compute_svm_embeddings_prediction_shuffled = SSHOperator(
         task_id=("compute_svm_embeddings_prediction_" +
-                 f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
+                 f"{task_model_name}_{chain}_{pre_tr_str}_shuffled"),
         ssh_hook=ssh_hook,
         command=SVM_EMBEDDINGS_PREDICTION_CMD,
         params={"venv_path": VENV_PATH,
