@@ -115,7 +115,7 @@ TRAINING_CMD = (
     "cd {{ params.base_path }} && git pull && "
     "source {{ params.venv_path }}/bin/activate && "
     "HF_HOME={{ params.cache_path }} python3 "
-    "python3 {{ params.base_path }}/attention_comparison/cli.py "
+    "{{ params.base_path }}/attention_comparison/cli.py "
     "fine-tuning -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
     "-c {{ params.chain }}"
