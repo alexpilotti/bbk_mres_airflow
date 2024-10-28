@@ -131,11 +131,11 @@ with DAG(
      task_undersample_train,
      task_check_undersample_test,
      task_undersample_test) = tasks.create_undersample_tasks(
-         ssh_hook, sftp_hook)
+         ssh_hook, sftp_hook, CHAIN_H)
 
     (task_check_split_data,
      task_split_data) = tasks.create_split_data_tasks(
-         ssh_hook, sftp_hook)
+         ssh_hook, sftp_hook, CHAIN_H)
 
     task_remove_sim_seqs_test >> task_check_undersample_test
     task_remove_sim_seqs_train >> task_check_undersample_train
@@ -143,7 +143,7 @@ with DAG(
 
     (get_tmp_input,
      ucl_put_input) = tasks.create_ucl_upload_sequences_task(
-         sftp_hook, ucl_sftp_hook)
+         sftp_hook, ucl_sftp_hook, CHAIN_H)
 
     task_split_data >> get_tmp_input
 

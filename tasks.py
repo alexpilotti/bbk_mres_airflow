@@ -19,18 +19,19 @@ VENV_PATH = f"{common.BASE_PATH}/venv"
 
 INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
 
-SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered.parquet"
-UNDERSAMPLE_TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_filtered_adj.parquet"
-TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split.parquet"
+SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet"
+UNDERSAMPLE_TRAINING_INPUT_PATH = (
+    f"{common.DATA_PATH}/S_filtered_adj" + "_{chain}.parquet")
+TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split" + "_{chain}.parquet"
 TRAINING_OUTPUT_PATH = f"{MODELS_PATH}/" + "{model}_{chain}/"
 TRAINING_OUTPUT_PATH_CHECK = TRAINING_OUTPUT_PATH + "config.json"
 
 REMOVE_SIMILAR_SEQUENCES_TEST_INPUT_PATH = (
     f"{common.DATA_PATH}/S_FF_20240729_test.parquet")
 UNDERSAMPLE_TEST_INPUT_PATH = (
-    f"{common.DATA_PATH}/S_FF_20240729_test_filtered.parquet")
+    f"{common.DATA_PATH}/S_FF_20240729_test_filtered" + "_{chain}.parquet")
 PREDICT_INPUT_PATH = (
-    f"{common.DATA_PATH}/S_FF_20240729_test_filtered_adj.parquet")
+    f"{common.DATA_PATH}/S_FF_20240729_test_filtered_adj" + "_{chain}.parquet")
 PREDICT_OUTPUT_PATH = (f"{common.DATA_PATH}/" +
                        "predict_metrics_{model}_{chain}_{pre_trained}.json")
 
@@ -55,7 +56,7 @@ UCL_SGE_UTILS_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/sge-utils"
 UCL_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/bbk-mres"
 UCL_DATA_PATH = f"{UCL_BASE_DIR}/data"
 UCL_MODELS_PATH = f"{UCL_BASE_DIR}/models"
-UCL_TRAINING_INPUT_PATH = f"{UCL_DATA_PATH}/S_split.parquet"
+UCL_TRAINING_INPUT_PATH = f"{UCL_DATA_PATH}/S_split" + "_{chain}.parquet"
 UCL_TRAINING_OUTPUT_PATH = f"{UCL_MODELS_PATH}/" + "{model}_{chain}/"
 
 UCL_TRAINING_NUM_GPUS = 2
@@ -216,10 +217,10 @@ def create_attention_comparison_tasks(
 def create_remove_similar_sequences_tasks(ssh_hook, sftp_hook, chain):
 
     train_input_path = INPUT_PATH
-    train_output_path = UNDERSAMPLE_TRAINING_INPUT_PATH
+    train_output_path = UNDERSAMPLE_TRAINING_INPUT_PATH.format(chain=chain)
     test_target_path = train_output_path
     test_input_path = REMOVE_SIMILAR_SEQUENCES_TEST_INPUT_PATH
-    test_output_path = UNDERSAMPLE_TEST_INPUT_PATH
+    test_output_path = UNDERSAMPLE_TEST_INPUT_PATH.format(chain=chain)
 
     task_check_train = sftp_compare_operators.SFTPComparePathDatetimesSensor(
         task_id=f"check_remove_similar_sequences_train",
@@ -274,11 +275,12 @@ def create_remove_similar_sequences_tasks(ssh_hook, sftp_hook, chain):
 
 
 @task_group(group_id="adjust_label_counts")
-def create_undersample_tasks(ssh_hook, sftp_hook):
-    undersample_train_input = UNDERSAMPLE_TRAINING_INPUT_PATH
-    undersample_train_output = SPLIT_DATA_INPUT_PATH
-    undersample_test_input = UNDERSAMPLE_TEST_INPUT_PATH
-    undersample_test_output = PREDICT_INPUT_PATH
+def create_undersample_tasks(ssh_hook, sftp_hook, chain):
+    undersample_train_input = UNDERSAMPLE_TRAINING_INPUT_PATH.format(
+        chain=chain)
+    undersample_train_output = SPLIT_DATA_INPUT_PATH.format(chain=chain)
+    undersample_test_input = UNDERSAMPLE_TEST_INPUT_PATH.format(chain=chain)
+    undersample_test_output = PREDICT_INPUT_PATH.format(chain=chain)
 
     task_check_train = sftp_compare_operators.SFTPComparePathDatetimesSensor(
         task_id=f"check_undersample_training",
@@ -331,11 +333,10 @@ def create_undersample_tasks(ssh_hook, sftp_hook):
 
 
 @task_group(group_id="split_data")
-def create_split_data_tasks(ssh_hook, sftp_hook):
+def create_split_data_tasks(ssh_hook, sftp_hook, chain):
 
-    input_path = SPLIT_DATA_INPUT_PATH
-    # TODO: add chain to path
-    output_path = TRAINING_INPUT_PATH
+    input_path = SPLIT_DATA_INPUT_PATH.format(chain=chain)
+    output_path = TRAINING_INPUT_PATH.format(chain=chain)
 
     task_check = sftp_compare_operators.SFTPComparePathDatetimesSensor(
         task_id=f"check_split_data",
@@ -367,7 +368,7 @@ def create_training_tasks(ssh_hook, sftp_hook, model, chain,
                           model_path=None, use_default_model_tokenizer=None,
                           task_model_name=None):
 
-    input_path = TRAINING_INPUT_PATH
+    input_path = TRAINING_INPUT_PATH.format(chain=chain)
     output_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
         model=task_model_name, chain=chain)
     output_path = TRAINING_OUTPUT_PATH.format(
@@ -408,7 +409,7 @@ def create_predict_tasks(ssh_hook, sftp_hook, model, chain,
 
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
 
-    input_path = PREDICT_INPUT_PATH
+    input_path = PREDICT_INPUT_PATH.format(chain=chain)
     output_path = PREDICT_OUTPUT_PATH.format(
         model=task_model_name, chain=chain, pre_trained=pre_trained_str)
 
@@ -452,7 +453,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
 
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
 
-    input_path = SPLIT_DATA_INPUT_PATH
+    input_path = SPLIT_DATA_INPUT_PATH.format(chain=chain)
     embeddings_path = EMBEDDINGS_OUTPUT_PATH.format(
         model=task_model_name, chain=chain, pre_trained=pre_trained_str)
 
@@ -593,14 +594,15 @@ def _create_grid_engine_task(
 
 
 @task_group(group_id="ucl_upload_sequences")
-def create_ucl_upload_sequences_task(sftp_hook, ucl_sftp_hook):
-    tmp_input_path = f"/tmp/{os.path.basename(TRAINING_INPUT_PATH)}"
+def create_ucl_upload_sequences_task(sftp_hook, ucl_sftp_hook, chain):
+    tmp_input_path = (
+        f"/tmp/{os.path.basename(TRAINING_INPUT_PATH.format(chain=chain))}")
 
     task_get = SFTPOperator(
         task_id=f"download_tmp_input_sequences",
         sftp_hook=sftp_hook,
         local_filepath=tmp_input_path,
-        remote_filepath=TRAINING_INPUT_PATH,
+        remote_filepath=TRAINING_INPUT_PATH.format(chain=chain),
         operation="get",
         create_intermediate_dirs=False,
         trigger_rule="one_success")
@@ -609,7 +611,7 @@ def create_ucl_upload_sequences_task(sftp_hook, ucl_sftp_hook):
         task_id=f"ucl_upload_input_sequences",
         sftp_hook=ucl_sftp_hook,
         local_filepath=tmp_input_path,
-        remote_filepath=UCL_TRAINING_INPUT_PATH,
+        remote_filepath=UCL_TRAINING_INPUT_PATH.format(chain=chain),
         operation="put",
         create_intermediate_dirs=False)
 
@@ -623,13 +625,13 @@ def create_ucl_training_tasks(
         model_path=None, use_default_model_tokenizer=None,
         task_model_name=None):
 
-    input_path = TRAINING_INPUT_PATH
+    input_path = TRAINING_INPUT_PATH.format(chain=chain)
     output_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
         model=task_model_name, chain=chain)
     output_path = TRAINING_OUTPUT_PATH.format(
         model=task_model_name, chain=chain)
 
-    ucl_input_path = UCL_TRAINING_INPUT_PATH
+    ucl_input_path = UCL_TRAINING_INPUT_PATH.format(chain=chain)
     ucl_output_path = UCL_TRAINING_OUTPUT_PATH.format(
         model=task_model_name, chain=chain)
 
