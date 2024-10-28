@@ -62,6 +62,8 @@ UCL_TRAINING_OUTPUT_PATH = f"{UCL_MODELS_PATH}/" + "{model}_{chain}/"
 UCL_TRAINING_NUM_GPUS = 2
 UCL_TRAINING_GPU_TYPE = "a40"
 
+DATASET_TRAIN = "train"
+
 POSITIVE_LABELS = "S+ S1+ S2+"
 FOLD = 1
 
@@ -83,8 +85,10 @@ SPLIT_DATA_CMD = (
 UNDERSAMPLE_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
-    "undersample -i {{ params.input }} -o {{ params.output }} "
-    "{% if params.target %} -t {{ params.target }} {% endif %}")
+    "undersample -i {{ params.input }} -o {{ params.output }}"
+    "{% if params.target %} -t {{ params.target }}{% endif %}"
+    "{% if params.target_dataset %} --target-dataset "
+    "{{ params.target_dataset }}{% endif %}")
 
 TRAINING_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
@@ -274,13 +278,10 @@ def create_remove_similar_sequences_tasks(ssh_hook, sftp_hook, chain):
             task_check_test, task_remove_similar_sequences_test)
 
 
-@task_group(group_id="adjust_label_counts")
-def create_undersample_tasks(ssh_hook, sftp_hook, chain):
+def create_undersample_training_tasks(ssh_hook, sftp_hook, chain):
     undersample_train_input = UNDERSAMPLE_TRAINING_INPUT_PATH.format(
         chain=chain)
     undersample_train_output = SPLIT_DATA_INPUT_PATH.format(chain=chain)
-    undersample_test_input = UNDERSAMPLE_TEST_INPUT_PATH.format(chain=chain)
-    undersample_test_output = PREDICT_INPUT_PATH.format(chain=chain)
 
     task_check_train = sftp_compare_operators.SFTPComparePathDatetimesSensor(
         task_id=f"check_undersample_training",
@@ -299,14 +300,25 @@ def create_undersample_tasks(ssh_hook, sftp_hook, chain):
                 "base_path": common.BASE_PATH,
                 "input": undersample_train_input,
                 "output": undersample_train_output,
-                "target": None
+                "target": None,
+                "target_dataset": None
                 },
     )
+
+    task_check_train >> task_undersample_train
+
+    return (task_check_train, task_undersample_train)
+
+
+def create_undersample_test_tasks(ssh_hook, sftp_hook, chain):
+    training_input_path = TRAINING_INPUT_PATH.format(chain=chain)
+    undersample_test_input = UNDERSAMPLE_TEST_INPUT_PATH.format(chain=chain)
+    undersample_test_output = PREDICT_INPUT_PATH.format(chain=chain)
 
     task_check_test = sftp_compare_operators.SFTPComparePathDatetimesSensor(
         task_id=f"check_undersample_test",
         sftp_hook=sftp_hook,
-        path1=[undersample_test_input, undersample_train_output],
+        path1=[undersample_test_input, training_input_path],
         path2=undersample_test_output,
         timeout=0,
         trigger_rule="none_failed"
@@ -320,16 +332,14 @@ def create_undersample_tasks(ssh_hook, sftp_hook, chain):
                 "base_path": common.BASE_PATH,
                 "input": undersample_test_input,
                 "output": undersample_test_output,
-                "target": undersample_train_output,
+                "target": training_input_path,
+                "target_dataset": DATASET_TRAIN
                 },
     )
 
-    task_check_train >> task_undersample_train
-    task_undersample_train >> task_check_test
     task_check_test >> task_undersample_test
 
-    return (task_check_train, task_undersample_train,
-            task_check_test, task_undersample_test)
+    return (task_check_test, task_undersample_test)
 
 
 @task_group(group_id="split_data")

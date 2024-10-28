@@ -133,19 +133,23 @@ with DAG(
      task_remove_sim_seqs_test) = tasks.create_remove_similar_sequences_tasks(
         ssh_hook, sftp_hook, chain)
 
-    (task_check_undersample_train,
-     task_undersample_train,
-     task_check_undersample_test,
-     task_undersample_test) = tasks.create_undersample_tasks(
-         ssh_hook, sftp_hook, chain)
+    with TaskGroup(group_id="adjust_label_counts") as tg:
+        (task_check_undersample_train,
+         task_undersample_train) = tasks.create_undersample_training_tasks(
+            ssh_hook, sftp_hook, chain)
+
+        (task_check_undersample_test,
+         task_undersample_test) = tasks.create_undersample_test_tasks(
+            ssh_hook, sftp_hook, chain)
 
     (task_check_split_data,
      task_split_data) = tasks.create_split_data_tasks(
          ssh_hook, sftp_hook, chain)
 
+    task_undersample_train >> task_check_split_data
+    task_split_data >> task_check_undersample_test
     task_remove_sim_seqs_test >> task_check_undersample_test
     task_remove_sim_seqs_train >> task_check_undersample_train
-    task_undersample_train >> task_check_split_data
 
     (get_tmp_input,
      ucl_put_input) = tasks.create_ucl_upload_sequences_task(
