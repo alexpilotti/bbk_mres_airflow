@@ -124,6 +124,10 @@ with DAG(
             GIT_DEFAULT_SGE_UTILS_BRANCH, tasks.UCL_SGE_UTILS_BASE_DIR,
             hard_reset=True)
 
+        bbk_mres_git_reset_task = git_tasks.create_git_reset_task(
+            "bbk_mres_git_reset", ssh_hook, git_branch,
+            common.BASE_PATH, hard_reset=True)
+
     attention_tasks = []
     svm_embeddings_prediction_tasks = []
 
@@ -145,6 +149,14 @@ with DAG(
     (task_check_split_data,
      task_split_data) = tasks.create_split_data_tasks(
          ssh_hook, sftp_hook, chain)
+
+    bbk_mres_git_reset_task >> [
+        task_remove_sim_seqs_train,
+        task_remove_sim_seqs_test,
+        task_undersample_train,
+        task_undersample_test,
+        task_split_data
+    ]
 
     task_undersample_train >> task_check_split_data
     task_split_data >> task_check_undersample_test
@@ -242,6 +254,13 @@ with DAG(
             last_training_task >> check_updated_attentions_ft
             last_training_task >> check_updated_embeddings_ft
 
+            bbk_mres_git_reset_task >> [
+                svm_emb_pred_pt,
+                svm_emb_pred_pt_shuffled,
+                svm_emb_pred_ft,
+                svm_emb_pred_ft_shuffled
+            ]
+
             predict_tasks.extend([predict_metrics_pt, predict_metrics_ft])
             attention_tasks.extend([attentions_pt, attentions_ft])
             svm_embeddings_prediction_tasks.extend(
@@ -278,6 +297,12 @@ with DAG(
             chain)
 
         process_metrics_rmd << predict_tasks
+
+        bbk_mres_git_reset_task >> [
+            process_attention_comparison_rmd,
+            process_cv_auroc_rmd,
+            process_metrics_rmd
+        ]
 
         send_success_email = EmailOperator(
             task_id="send_success_email",
