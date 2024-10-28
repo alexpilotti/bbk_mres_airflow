@@ -19,9 +19,9 @@ VENV_PATH = f"{common.BASE_PATH}/venv"
 
 INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
 
-SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet"
+SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered_adj" + "_{chain}.parquet"
 UNDERSAMPLE_TRAINING_INPUT_PATH = (
-    f"{common.DATA_PATH}/S_filtered_adj" + "_{chain}.parquet")
+    f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet")
 TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split" + "_{chain}.parquet"
 TRAINING_OUTPUT_PATH = f"{MODELS_PATH}/" + "{model}_{chain}/"
 TRAINING_OUTPUT_PATH_CHECK = TRAINING_OUTPUT_PATH + "config.json"
