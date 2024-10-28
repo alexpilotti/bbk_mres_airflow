@@ -18,15 +18,19 @@ MODELS_PATH = f"{common.DATA_PATH}/models"
 VENV_PATH = f"{common.BASE_PATH}/venv"
 
 INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
-SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered.parquet"
 
+SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered.parquet"
+UNDERSAMPLE_TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_filtered_adj.parquet"
 TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split.parquet"
 TRAINING_OUTPUT_PATH = f"{MODELS_PATH}/" + "{model}_{chain}/"
 TRAINING_OUTPUT_PATH_CHECK = TRAINING_OUTPUT_PATH + "config.json"
 
 REMOVE_SIMILAR_SEQUENCES_TEST_INPUT_PATH = (
     f"{common.DATA_PATH}/S_FF_20240729_test.parquet")
-PREDICT_INPUT_PATH = f"{common.DATA_PATH}/S_FF_20240729_test_filtered.parquet"
+UNDERSAMPLE_TEST_INPUT_PATH = (
+    f"{common.DATA_PATH}/S_FF_20240729_test_filtered.parquet")
+PREDICT_INPUT_PATH = (
+    f"{common.DATA_PATH}/S_FF_20240729_test_filtered_adj.parquet")
 PREDICT_OUTPUT_PATH = (f"{common.DATA_PATH}/" +
                        "predict_metrics_{model}_{chain}_{pre_trained}.json")
 
@@ -74,6 +78,12 @@ SPLIT_DATA_CMD = (
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "split-data -i {{ params.input }} -o {{ params.output }} "
     "-l {{ params.positive_labels }} -f {{ params.fold }}")
+
+UNDERSAMPLE_CMD = (
+    "source {{ params.venv_path }}/bin/activate && "
+    "python3 {{ params.base_path }}/attention_comparison/cli.py "
+    "undersample -i {{ params.input }} -o {{ params.output }} "
+    "{% if params.target %} -t {{ params.target }} {% endif %}")
 
 TRAINING_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
@@ -206,10 +216,10 @@ def create_attention_comparison_tasks(
 def create_remove_similar_sequences_tasks(ssh_hook, sftp_hook, chain):
 
     train_input_path = INPUT_PATH
-    train_output_path = SPLIT_DATA_INPUT_PATH
-    test_target_path = SPLIT_DATA_INPUT_PATH
+    train_output_path = UNDERSAMPLE_TRAINING_INPUT_PATH
+    test_target_path = train_output_path
     test_input_path = REMOVE_SIMILAR_SEQUENCES_TEST_INPUT_PATH
-    test_output_path = PREDICT_INPUT_PATH
+    test_output_path = UNDERSAMPLE_TEST_INPUT_PATH
 
     task_check_train = sftp_compare_operators.SFTPComparePathDatetimesSensor(
         task_id=f"check_remove_similar_sequences_train",
@@ -261,6 +271,63 @@ def create_remove_similar_sequences_tasks(ssh_hook, sftp_hook, chain):
 
     return (task_check_train, task_remove_similar_sequences_train,
             task_check_test, task_remove_similar_sequences_test)
+
+
+@task_group(group_id="adjust_label_counts")
+def create_undersample_tasks(ssh_hook, sftp_hook):
+    undersample_train_input = UNDERSAMPLE_TRAINING_INPUT_PATH
+    undersample_train_output = SPLIT_DATA_INPUT_PATH
+    undersample_test_input = UNDERSAMPLE_TEST_INPUT_PATH
+    undersample_test_output = PREDICT_INPUT_PATH
+
+    task_check_train = sftp_compare_operators.SFTPComparePathDatetimesSensor(
+        task_id=f"check_undersample_training",
+        sftp_hook=sftp_hook,
+        path1=undersample_train_input,
+        path2=undersample_train_output,
+        timeout=0,
+        trigger_rule="none_failed"
+    )
+
+    task_undersample_train = SSHOperator(
+        task_id=f"undersample_training",
+        ssh_hook=ssh_hook,
+        command=UNDERSAMPLE_CMD,
+        params={"venv_path": VENV_PATH,
+                "base_path": common.BASE_PATH,
+                "input": undersample_train_input,
+                "output": undersample_train_output,
+                "target": None
+                },
+    )
+
+    task_check_test = sftp_compare_operators.SFTPComparePathDatetimesSensor(
+        task_id=f"check_undersample_test",
+        sftp_hook=sftp_hook,
+        path1=[undersample_test_input, undersample_train_output],
+        path2=undersample_test_output,
+        timeout=0,
+        trigger_rule="none_failed"
+    )
+
+    task_undersample_test = SSHOperator(
+        task_id=f"undersample_test",
+        ssh_hook=ssh_hook,
+        command=UNDERSAMPLE_CMD,
+        params={"venv_path": VENV_PATH,
+                "base_path": common.BASE_PATH,
+                "input": undersample_test_input,
+                "output": undersample_test_output,
+                "target": undersample_train_output,
+                },
+    )
+
+    task_check_train >> task_undersample_train
+    task_undersample_train >> task_check_test
+    task_check_test >> task_undersample_test
+
+    return (task_check_train, task_undersample_train,
+            task_check_test, task_undersample_test)
 
 
 @task_group(group_id="split_data")
