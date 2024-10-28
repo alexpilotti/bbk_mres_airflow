@@ -13,6 +13,7 @@ from bbk_mres_airflow import git_tasks
 from bbk_mres_airflow import ssh_jump_hook
 from bbk_mres_airflow import tasks
 
+VAR_CHAIN = "chain"
 VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
 GIT_BBK_MRES_DEFAULT_BRANCH = "main"
 GIT_DEFAULT_SGE_UTILS_BRANCH = "master"
@@ -28,6 +29,8 @@ MODEL_ESM2_8M = "ESM2-8M"
 MODEL_NAME_FT_ESM2 = "ft-ESM2"
 
 CHAIN_H = "H"
+CHAIN_L = "L"
+CHAIN_HL = "HL"
 
 ATTENTIONS_RMD = f"{common.BASE_PATH}/attention_comparison.Rmd"
 ATTENTIONS_RMD_OUTPUT_FILENAME = "attention_comparison.html"
@@ -85,6 +88,9 @@ with DAG(
     catchup=False,
     tags=["bbk"],
 ) as dag:
+    chain = Variable.get(VAR_CHAIN, CHAIN_H)
+    if chain not in [CHAIN_H, CHAIN_L, CHAIN_HL]:
+        raise Exception(f"Invalid chain: {chain}")
 
     ssh_hook = SSHHook(ssh_conn_id="ssh_conn", cmd_timeout=None)
     sftp_hook = SFTPHook("sftp_conn")
@@ -94,15 +100,15 @@ with DAG(
     ucl_sftp_hook = SFTPHook(ssh_hook=ucl_ssh_hook)
 
     task_info = [
-        (False, MODEL_ANTIBERTY, CHAIN_H, None, None, False, None),
-        (False, MODEL_ANTIBERTA2, CHAIN_H, None, None, False, None),
-        (False, MODEL_BALM_PAIRED, CHAIN_H, BALM_MODEL_PATH, None, False,
+        (False, MODEL_ANTIBERTY, chain, None, None, False, None),
+        (False, MODEL_ANTIBERTA2, chain, None, None, False, None),
+        (False, MODEL_BALM_PAIRED, chain, BALM_MODEL_PATH, None, False,
          None),
-        (False, MODEL_ESM2_8M, CHAIN_H, None, None, False, None),
-        (False, MODEL_ESM2_35M, CHAIN_H, None, None, False, None),
-        (False, MODEL_ESM2_150M, CHAIN_H, None, None, False, None),
-        (True, MODEL_ESM2_650M, CHAIN_H, None, None, False, None),
-        (True, MODEL_ESM2_650M, CHAIN_H, FT_ESM2_MODEL_PATH,
+        (False, MODEL_ESM2_8M, chain, None, None, False, None),
+        (False, MODEL_ESM2_35M, chain, None, None, False, None),
+        (False, MODEL_ESM2_150M, chain, None, None, False, None),
+        (True, MODEL_ESM2_650M, chain, None, None, False, None),
+        (True, MODEL_ESM2_650M, chain, FT_ESM2_MODEL_PATH,
          UCL_FT_ESM2_MODEL_PATH, True, MODEL_NAME_FT_ESM2)
     ]
 
@@ -125,17 +131,17 @@ with DAG(
      task_remove_sim_seqs_train,
      task_check_remove_sim_seqs_test,
      task_remove_sim_seqs_test) = tasks.create_remove_similar_sequences_tasks(
-        ssh_hook, sftp_hook, CHAIN_H)
+        ssh_hook, sftp_hook, chain)
 
     (task_check_undersample_train,
      task_undersample_train,
      task_check_undersample_test,
      task_undersample_test) = tasks.create_undersample_tasks(
-         ssh_hook, sftp_hook, CHAIN_H)
+         ssh_hook, sftp_hook, chain)
 
     (task_check_split_data,
      task_split_data) = tasks.create_split_data_tasks(
-         ssh_hook, sftp_hook, CHAIN_H)
+         ssh_hook, sftp_hook, chain)
 
     task_remove_sim_seqs_test >> task_check_undersample_test
     task_remove_sim_seqs_train >> task_check_undersample_train
@@ -143,7 +149,7 @@ with DAG(
 
     (get_tmp_input,
      ucl_put_input) = tasks.create_ucl_upload_sequences_task(
-         sftp_hook, ucl_sftp_hook, CHAIN_H)
+         sftp_hook, ucl_sftp_hook, chain)
 
     task_split_data >> get_tmp_input
 
@@ -245,7 +251,7 @@ with DAG(
             ATTENTIONS_RMD,
             common.OUTPUT_PATH,
             ATTENTIONS_RMD_OUTPUT_FILENAME,
-            CHAIN_H)
+            chain)
 
         process_attention_comparison_rmd << attention_tasks
 
@@ -255,7 +261,7 @@ with DAG(
             CV_AUROC_RMD,
             common.OUTPUT_PATH,
             CV_AUROC_RMD_OUTPUT_FILENAME,
-            CHAIN_H)
+            chain)
 
         process_cv_auroc_rmd << svm_embeddings_prediction_tasks
 
@@ -265,7 +271,7 @@ with DAG(
             CV_METRICS_RMD,
             common.OUTPUT_PATH,
             CV_METRICS_RMD_OUTPUT_FILENAME,
-            CHAIN_H)
+            chain)
 
         process_metrics_rmd << predict_tasks
 
