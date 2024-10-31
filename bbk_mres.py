@@ -138,9 +138,11 @@ with DAG(
         ssh_hook, sftp_hook, chain)
 
     with TaskGroup(group_id="adjust_label_counts") as tg:
+        '''
         (task_check_undersample_train,
          task_undersample_train) = tasks.create_undersample_training_tasks(
             ssh_hook, sftp_hook, chain)
+        '''
 
         (task_check_undersample_test,
          task_undersample_test) = tasks.create_undersample_test_tasks(
@@ -153,15 +155,16 @@ with DAG(
     bbk_mres_git_reset_task >> [
         task_remove_sim_seqs_train,
         task_remove_sim_seqs_test,
-        task_undersample_train,
+        # task_undersample_train,
         task_undersample_test,
         task_split_data
     ]
 
-    task_undersample_train >> task_check_split_data
+    task_remove_sim_seqs_train >> task_check_split_data
+    # task_undersample_train >> task_check_split_data
     task_split_data >> task_check_undersample_test
     task_remove_sim_seqs_test >> task_check_undersample_test
-    task_remove_sim_seqs_train >> task_check_undersample_train
+    # task_remove_sim_seqs_train >> task_check_undersample_train
 
     (get_tmp_input,
      ucl_put_input) = tasks.create_ucl_upload_sequences_task(
@@ -242,13 +245,15 @@ with DAG(
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
-            task_undersample_train >> [
+            task_remove_sim_seqs_train >> [
                 check_updated_embeddings_pt,
                 check_updated_embeddings_ft]
 
             task_undersample_test >> [
                 check_update_predict_metrics_pt,
-                check_update_predict_metrics_ft]
+                check_update_predict_metrics_ft,
+                check_updated_attentions_pt,
+                check_updated_attentions_ft]
 
             last_training_task >> check_update_predict_metrics_ft
             last_training_task >> check_updated_attentions_ft
