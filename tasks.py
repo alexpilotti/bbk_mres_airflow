@@ -4,6 +4,7 @@ import jinja2
 
 
 from airflow.decorators import task_group
+from airflow.models import Variable
 from airflow.providers.sftp.operators.sftp import SFTPOperator
 from airflow.providers.ssh.operators.ssh import SSHOperator
 
@@ -184,7 +185,8 @@ def create_attention_comparison_tasks(
         model=task_model_name, chain=chain, pre_trained=pre_trained_str)
     training_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
         model=task_model_name, chain=chain)
-    max_sequences = MAX_ATTENTION_SEQUENCES
+    max_sequences = Variable.get("max_attention_sequences",
+                                 default_var=MAX_ATTENTION_SEQUENCES)
 
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
