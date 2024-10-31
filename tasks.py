@@ -79,7 +79,6 @@ MIN_SEQ_ID = 0.9
 
 OPENSTACK_AUTH_URL = "http://10.7.231.224/identity"
 OPENSTACK_IMAGE_NAME = "ubuntu-22.04-bbk-mres"
-OPENSTACK_FLAVOR_NAME = "vgpu.large"
 OPENSTACK_KEYPAIR = "bbk"
 OPENSTACK_NETWORK_NAME = "private"
 OPENSTACK_VOLUME_SIZE_GB = 30
@@ -249,7 +248,7 @@ def create_attention_comparison_tasks(
         user_domain_name=Variable.get("openstack_user_domain_name"),
         project_domain_name=Variable.get("openstack_project_domain_name"),
         image_name=OPENSTACK_IMAGE_NAME,
-        flavor_name=OPENSTACK_FLAVOR_NAME,
+        flavor_name=Variable.get("openstack_flavor_name"),
         keypair_name=OPENSTACK_KEYPAIR,
         network_name=OPENSTACK_NETWORK_NAME,
         volume_size_gb=OPENSTACK_VOLUME_SIZE_GB,
@@ -494,7 +493,7 @@ def create_training_tasks(ssh_hook, sftp_hook, model, chain,
         project_domain_name=Variable.get("openstack_project_domain_name"),
         instance_name=f"training_{task_model_name}_{chain}",
         image_name=OPENSTACK_IMAGE_NAME,
-        flavor_name=OPENSTACK_FLAVOR_NAME,
+        flavor_name=Variable.get("openstack_flavor_name"),
         keypair_name=OPENSTACK_KEYPAIR,
         network_name=OPENSTACK_NETWORK_NAME,
         volume_size_gb=OPENSTACK_VOLUME_SIZE_GB,
@@ -555,7 +554,7 @@ def create_predict_tasks(ssh_hook, sftp_hook, model, chain,
         user_domain_name=Variable.get("openstack_user_domain_name"),
         project_domain_name=Variable.get("openstack_project_domain_name"),
         image_name=OPENSTACK_IMAGE_NAME,
-        flavor_name=OPENSTACK_FLAVOR_NAME,
+        flavor_name=Variable.get("openstack_flavor_name"),
         keypair_name=OPENSTACK_KEYPAIR,
         network_name=OPENSTACK_NETWORK_NAME,
         volume_size_gb=OPENSTACK_VOLUME_SIZE_GB,
@@ -616,7 +615,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
         user_domain_name=Variable.get("openstack_user_domain_name"),
         project_domain_name=Variable.get("openstack_project_domain_name"),
         image_name=OPENSTACK_IMAGE_NAME,
-        flavor_name=OPENSTACK_FLAVOR_NAME,
+        flavor_name=Variable.get("openstack_flavor_name"),
         keypair_name=OPENSTACK_KEYPAIR,
         network_name=OPENSTACK_NETWORK_NAME,
         volume_size_gb=OPENSTACK_VOLUME_SIZE_GB,
