@@ -19,7 +19,7 @@ VENV_PATH = f"{common.BASE_PATH}/venv"
 
 INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
 
-SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered_adj" + "_{chain}.parquet"
+SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet"
 UNDERSAMPLE_TRAINING_INPUT_PATH = (
     f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet")
 TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split" + "_{chain}.parquet"
@@ -37,7 +37,7 @@ PREDICT_OUTPUT_PATH = (f"{common.DATA_PATH}/" +
 
 PRE_TRAINED = "PT"
 FINE_TUNED = "FT"
-ATTENTIONS_INPUT_PATH = f"{common.DATA_PATH}/S_attentions.parquet"
+ATTENTIONS_INPUT_PATH = PREDICT_INPUT_PATH
 ATTENTIONS_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" +
     "attention_weights_{model}_{chain}_{pre_trained}.parquet")
@@ -66,6 +66,8 @@ DATASET_TRAIN = "train"
 
 POSITIVE_LABELS = "S+ S1+ S2+"
 FOLD = 1
+
+MAX_ATTENTION_SEQUENCES = 200
 
 MIN_SEQ_ID = 0.9
 
@@ -117,7 +119,8 @@ ATTENTIONS_CMD = (
     "{{ params.base_path }}/attention_comparison/cli.py "
     "attentions -m {{ params.model }} -i {{ params.input }} "
     "-o {{ params.output }} -c {{ params.chain }}"
-    "{% if params.model_path %} -p {{ params.model_path }}"
+    "{% if params.max_sequences %} --max-sequences {{ params.max_sequences }}"
+    "{% endif %}{% if params.model_path %} -p {{ params.model_path }}"
     "{% endif %}{% if params.use_default_model_tokenizer %} "
     "--use-default-model-tokenizer"
     "{% endif %}")
@@ -176,11 +179,12 @@ def create_attention_comparison_tasks(
         task_model_name=None, pre_trained=True):
 
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
-    input_path = ATTENTIONS_INPUT_PATH
+    input_path = ATTENTIONS_INPUT_PATH.format(chain=chain)
     output_path = ATTENTIONS_OUTPUT_PATH.format(
         model=task_model_name, chain=chain, pre_trained=pre_trained_str)
     training_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
         model=task_model_name, chain=chain)
+    max_sequences = MAX_ATTENTION_SEQUENCES
 
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
@@ -206,6 +210,7 @@ def create_attention_comparison_tasks(
                 "model": model,
                 "input": input_path,
                 "output": output_path,
+                "max_sequences": max_sequences,
                 "chain": chain,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer},
