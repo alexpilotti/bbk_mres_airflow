@@ -21,6 +21,8 @@ VENV_PATH = f"{common.BASE_PATH}/venv"
 INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
 
 SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet"
+SVM_EMBEDDINGS_SHUFFLED_PREDICTION_INPUT_PATH = (
+    f"{common.DATA_PATH}/S_filtered_shuffled" + "_{chain}.parquet")
 UNDERSAMPLE_TRAINING_INPUT_PATH = (
     f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet")
 TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split" + "_{chain}.parquet"
@@ -137,13 +139,17 @@ EMBEDDINGS_CMD = (
     "--use-default-model-tokenizer"
     "{% endif %}")
 
+SHUFFLE_CMD = (
+    "source {{ params.venv_path }}/bin/activate && "
+    "python3 {{ params.base_path }}/attention_comparison/cli.py "
+    "shuffle -i {{ params.input }} -o {{ params.output }}")
+
 SVM_EMBEDDINGS_PREDICTION_CMD = (
     "source {{ params.venv_path }}/bin/activate && "
     "python3 {{ params.base_path }}/attention_comparison/cli.py "
     "svm-embeddings-prediction -i {{ params.input }} "
     "-e {{ params.embeddings }} -o {{ params.output }} "
-    "-l {{ params.positive_labels }}"
-    "{% if params.shuffle %} --shuffle{% endif %}")
+    "-l {{ params.positive_labels }}")
 
 RMARKDOWN_CMD = (
     "tmp_dir=$(/usr/bin/mktemp -d) && "
@@ -381,6 +387,36 @@ def create_split_data_tasks(ssh_hook, sftp_hook, chain):
     return task_check, task_split_data
 
 
+@task_group(group_id="shuffle_labels")
+def create_shuffle_labels_tasks(ssh_hook, sftp_hook, chain):
+    input_path = SPLIT_DATA_INPUT_PATH.format(chain=chain)
+    output_path = SVM_EMBEDDINGS_SHUFFLED_PREDICTION_INPUT_PATH.format(
+        chain=chain)
+
+    task_check = sftp_compare_operators.SFTPComparePathDatetimesSensor(
+        task_id=f"check_shuffle_data",
+        sftp_hook=sftp_hook,
+        path1=input_path,
+        path2=output_path,
+        timeout=0,
+        trigger_rule="none_failed"
+    )
+
+    task_shuffle_labels = SSHOperator(
+        task_id=f"shuffle_labels",
+        ssh_hook=ssh_hook,
+        command=SHUFFLE_CMD,
+        params={"venv_path": VENV_PATH,
+                "base_path": common.BASE_PATH,
+                "input": input_path,
+                "output": output_path},
+    )
+
+    task_check >> task_shuffle_labels
+
+    return task_check, task_shuffle_labels
+
+
 def create_training_tasks(ssh_hook, sftp_hook, model, chain,
                           model_path=None, use_default_model_tokenizer=None,
                           task_model_name=None):
@@ -510,7 +546,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
         task_id=("check_update_svm_embeddings_prediction_"
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
         sftp_hook=sftp_hook,
-        path1=embeddings_path,
+        path1=[input_path, embeddings_path],
         path2=svm_output_path,
         timeout=0,
         trigger_rule="none_failed"
@@ -526,13 +562,14 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
                 "input": input_path,
                 "output": svm_output_path,
                 "embeddings": embeddings_path,
-                "shuffle": False,
                 "positive_labels": POSITIVE_LABELS},
         pool=CPU_TASKS_POOL
     )
 
     task_check_svm >> task_compute_svm_embeddings_prediction
 
+    svm_input_path_shuffled = (
+        SVM_EMBEDDINGS_SHUFFLED_PREDICTION_INPUT_PATH.format(chain=chain))
     svm_output_path_shuffled = (
         SVM_EMBEDDINGS_SHUFFLED_PREDICTION_OUTPUT_PATH.format(
             model=task_model_name, chain=chain, pre_trained=pre_trained_str))
@@ -542,7 +579,7 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
             task_id=("check_update_svm_embeddings_prediction_"
                      f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
             sftp_hook=sftp_hook,
-            path1=embeddings_path,
+            path1=[svm_input_path_shuffled, embeddings_path],
             path2=svm_output_path_shuffled,
             timeout=0,
             trigger_rule="none_failed"
@@ -555,10 +592,9 @@ def create_embeddings_tasks(ssh_hook, sftp_hook, model, chain,
         command=SVM_EMBEDDINGS_PREDICTION_CMD,
         params={"venv_path": VENV_PATH,
                 "base_path": common.BASE_PATH,
-                "input": input_path,
+                "input": svm_input_path_shuffled,
                 "output": svm_output_path_shuffled,
                 "embeddings": embeddings_path,
-                "shuffle": True,
                 "positive_labels": POSITIVE_LABELS},
         pool=CPU_TASKS_POOL
     )

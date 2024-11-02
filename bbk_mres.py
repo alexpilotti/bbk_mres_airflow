@@ -152,14 +152,20 @@ with DAG(
      task_split_data) = tasks.create_split_data_tasks(
          ssh_hook, sftp_hook, chain)
 
+    (task_check_shuffle_labels,
+     task_shuffle_labels) = tasks.create_shuffle_labels_tasks(
+         ssh_hook, sftp_hook, chain)
+
     bbk_mres_git_reset_task >> [
         task_remove_sim_seqs_train,
         task_remove_sim_seqs_test,
         # task_undersample_train,
         task_undersample_test,
-        task_split_data
+        task_split_data,
+        task_shuffle_labels
     ]
 
+    task_remove_sim_seqs_train >> task_check_shuffle_labels
     task_remove_sim_seqs_train >> task_check_split_data
     # task_undersample_train >> task_check_split_data
     task_split_data >> task_check_undersample_test
@@ -244,6 +250,10 @@ with DAG(
                     ssh_hook, sftp_hook, model, chain, None,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
+
+            task_shuffle_labels >> [
+                check_svm_emb_pred_pt_shuffled,
+                check_svm_emb_pred_ft_shuffled]
 
             task_remove_sim_seqs_train >> [
                 check_updated_embeddings_pt,
