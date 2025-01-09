@@ -10,8 +10,8 @@ from airflow.utils.task_group import TaskGroup
 
 from bbk_mres_airflow import common
 from bbk_mres_airflow import git_tasks
+from bbk_mres_airflow.seq_classification import tasks
 from bbk_mres_airflow import ssh_jump_hook
-from bbk_mres_airflow import tasks
 
 VAR_CHAIN = "chain"
 VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
