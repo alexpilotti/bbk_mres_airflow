@@ -56,7 +56,7 @@ DATA_URL = "https://bbk-mres.pilotti.it/data"
 
 
 with DAG(
-    "BBK-MRes-attention-comparison",
+    "BBK-MRes-sequence-classification",
     # These args will get passed on to each operator
     # You can override them on a per-task basis during operator initialization
     default_args={
@@ -81,7 +81,7 @@ with DAG(
         # 'trigger_rule': 'all_success'
     },
     max_active_runs=1,
-    description="BBK-MRes DAG",
+    description="BBK-MRes Sequence Classification",
     schedule_interval=None,
     # schedule=timedelta(days=1),
     start_date=datetime(2024, 8, 1),
