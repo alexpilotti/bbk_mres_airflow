@@ -12,6 +12,7 @@ from bbk_mres_airflow import common
 from bbk_mres_airflow import git_tasks
 from bbk_mres_airflow.seq_classification import tasks
 from bbk_mres_airflow import ssh_jump_hook
+from bbk_mres_airflow import utils
 
 VAR_CHAIN = "chain"
 VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
@@ -350,7 +351,7 @@ with DAG(
                 '</p>'),
             params={
                 "data_url": DATA_URL,
-                "get_dag_run_url": common.get_dag_run_url}
+                "get_dag_run_url": utils.get_dag_run_url}
             )
 
         send_success_email << [
