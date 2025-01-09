@@ -8,8 +8,8 @@ from airflow.providers.sftp.hooks.sftp import SFTPHook
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.utils.task_group import TaskGroup
 
-from bbk_mres_airflow import common
 from bbk_mres_airflow import git_tasks
+from bbk_mres_airflow.seq_classification import common
 from bbk_mres_airflow.seq_classification import tasks
 from bbk_mres_airflow import ssh_jump_hook
 from bbk_mres_airflow import utils

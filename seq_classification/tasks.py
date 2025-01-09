@@ -8,7 +8,7 @@ from airflow.models import Variable
 from airflow.providers.sftp.operators.sftp import SFTPOperator
 from airflow.providers.ssh.operators.ssh import SSHOperator
 
-from bbk_mres_airflow import common
+from bbk_mres_airflow.seq_classification import common
 from bbk_mres_airflow import sftp_compare_operators
 
 CPU_TASKS_POOL = "cpu_pool"
