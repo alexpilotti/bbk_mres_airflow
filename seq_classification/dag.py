@@ -53,8 +53,6 @@ UCL_EXTERNAL_MODELS_PATH = (
 UCL_FT_ESM2_MODEL_PATH = (
     f"{UCL_EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/")
 
-DATA_URL = "https://bbk-mres.pilotti.it/data"
-
 
 with DAG(
     "BBK-MRes-sequence-classification",
@@ -320,6 +318,8 @@ with DAG(
             process_metrics_rmd
         ]
 
+        data_url = f"{utils.get_base_url()}/data/"
+
         send_success_email = EmailOperator(
             task_id="send_success_email",
             to="{{ var.value.email_to }}",
@@ -350,7 +350,7 @@ with DAG(
                 '<a href="{{ params.data_url }}">All data</a>'
                 '</p>'),
             params={
-                "data_url": DATA_URL,
+                "data_url": data_url,
                 "get_dag_run_url": utils.get_dag_run_url}
             )
 
