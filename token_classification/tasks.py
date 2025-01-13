@@ -23,7 +23,7 @@ CUDA_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-cuda:latest"
 R_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-r:latest"
 
 FINE_TUNING_CMD = (
-    "git fetch && git checkout main && "
+    "git fetch && git reset --hard origin/main && "
     "python3 attention_comparison/cli.py "
     "token-fine-tuning -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
@@ -34,7 +34,7 @@ FINE_TUNING_CMD = (
     "{% endif %}")
 
 PREDICT_CMD = (
-    "git fetch && git checkout main && "
+    "git fetch && git reset --hard origin/main && "
     "python3 attention_comparison/cli.py "
     "token-prediction -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output_metrics }} "
@@ -45,7 +45,7 @@ PREDICT_CMD = (
     "{% endif %}")
 
 RMARKDOWN_CMD = (
-    "git fetch && git checkout main && "
+    "git fetch && git reset --hard origin/main && "
     "mkdir -p '{{ params.output_base_dir }}/{{ run_id }}' && "
     "/usr/bin/Rscript -e "
     "\"rmarkdown::render('{{ params.rmd_path }}', "
