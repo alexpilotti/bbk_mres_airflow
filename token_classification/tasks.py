@@ -7,7 +7,8 @@ FINE_TUNED = "FT"
 MODELS_PATH = f"{k8s.DATA_PATH}/models"
 
 FINE_TUNING_INPUT_PATH = f"{k8s.DATA_PATH}/tokens_data.parquet"
-FINE_TUNING_OUTPUT_PATH = f"{MODELS_PATH}/" + "{model}_{chain}/"
+FINE_TUNING_OUTPUT_PATH = (
+    f"{MODELS_PATH}/" + "token_prediction_{model}_{chain}/")
 FINE_TUNING_OUTPUT_PATH_CHECK = FINE_TUNING_OUTPUT_PATH + "config.json"
 
 PREDICT_METRICS_PATH = (
