@@ -17,6 +17,7 @@ MODEL_ANTIBERTY = "AntiBERTy"
 MODEL_ANTIBERTA2 = "AntiBERTa2"
 MODEL_ESM2_650M = "ESM2-650M"
 MODEL_ESM2_150M = "ESM2-150M"
+MODEL_ESM2_15B = "ESM2-15B"
 MODEL_ESM2_35M = "ESM2-35M"
 MODEL_ESM2_3B = "ESM2-3B"
 MODEL_ESM2_8M = "ESM2-8M"
@@ -86,7 +87,8 @@ with DAG(
         (MODEL_ESM2_150M, None, False, None, 1),
         (MODEL_ESM2_650M, None, False, None, 2),
         (MODEL_ESM2_650M, FT_ESM2_MODEL_PATH, True, MODEL_NAME_FT_ESM2, 2),
-        (MODEL_ESM2_3B, None, False, None, 4)
+        (MODEL_ESM2_3B, None, False, None, 4),
+        (MODEL_ESM2_15B, None, False, None, 10)
     ]
 
     predict_tasks = []
