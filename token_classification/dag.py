@@ -35,8 +35,11 @@ FT_ESM2_MODEL_PATH = f"{EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/"
 
 OUTPUT_PATH = f"{k8s.DATA_PATH}/output"
 
-TOKEN_PREDICTION_RMD = f"token_prediction.Rmd"
-TOKEN_PREDICTION_OUTPUT_FILENAME = "token_prediction.html"
+TOKEN_PREDICTION_LABELS_RMD = f"token_prediction_labels.Rmd"
+TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME = "token_prediction_labels.html"
+
+TOKEN_PREDICTION_METRICS_RMD = f"token_prediction_metrics.Rmd"
+TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME = "token_prediction_metrics.html"
 
 
 with DAG(
@@ -115,14 +118,23 @@ with DAG(
                 predict_tasks.extend([task_predict_ft, task_predict_pt])
 
     with TaskGroup(group_id=f"reports") as tg:
-        token_prediction_rmd = tasks.create_rmarkdown_task(
-            "token_prediction_rmd",
-            TOKEN_PREDICTION_RMD,
+        token_prediction_labels_rmd = tasks.create_rmarkdown_task(
+            "token_prediction_labels_rmd",
+            TOKEN_PREDICTION_LABELS_RMD,
             OUTPUT_PATH,
-            TOKEN_PREDICTION_OUTPUT_FILENAME,
+            TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME,
             chain)
 
-        predict_tasks >> token_prediction_rmd
+        token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
+            "token_prediction_metrics_rmd",
+            TOKEN_PREDICTION_METRICS_RMD,
+            OUTPUT_PATH,
+            TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME,
+            chain)
+
+
+        predict_tasks >> token_prediction_labels_rmd
+        predict_tasks >> token_prediction_metrics_rmd
 
         data_url = f"{utils.get_base_url()}/data/"
 
@@ -138,7 +150,11 @@ with DAG(
                 '<ul>'
                 '  <li>'
                 '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
-                'token_prediction.html">Token prediction</a>'
+                'token_prediction_labels.html">Token prediction labels</a>'
+                '  </li>'
+                '  <li>'
+                '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
+                'token_prediction_metrics.html">Token prediction metrics</a>'
                 '  </li>'
                 '</ul>'
                 '<br/>'
@@ -152,4 +168,5 @@ with DAG(
                 "get_dag_run_url": utils.get_dag_run_url}
             )
 
-        send_success_email << token_prediction_rmd
+        [token_prediction_labels_rmd,
+         token_prediction_metrics_rmd] >> send_success_email
