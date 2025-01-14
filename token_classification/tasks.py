@@ -18,17 +18,19 @@ PREDICT_LABELS_PATH = (
     f"{k8s.DATA_PATH}/" +
     "token_prediction_{model}_{chain}_{pre_trained}.parquet")
 
-PREDICT_GPUS = 1
+PREDICT_GPUS = 2
 
 CUDA_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-cuda:latest"
 R_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-r:latest"
 
 FINE_TUNING_CMD = (
     "git fetch && git reset --hard origin/main && "
-    "python3 attention_comparison/cli.py "
+    "accelerate launch --multi_gpu --mixed_precision fp16 "
+    "--num_processes=$(nvidia-smi --list-gpus | wc -l) "
+    "attention_comparison/cli.py "
     "token-fine-tuning -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
-    "-c {{ params.chain }}"
+    "-c {{ params.chain }} -b {{ params.batch_size }} "
     "{% if params.model_path %} -p {{ params.model_path }}"
     "{% endif %}{% if params.use_default_model_tokenizer %} "
     "--use-default-model-tokenizer"
@@ -36,7 +38,9 @@ FINE_TUNING_CMD = (
 
 PREDICT_CMD = (
     "git fetch && git reset --hard origin/main && "
-    "python3 attention_comparison/cli.py "
+    "accelerate launch --multi_gpu --mixed_precision fp16 "
+    "--num_processes=$(nvidia-smi --list-gpus | wc -l) "
+    "attention_comparison/cli.py "
     "token-prediction -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output_metrics }} "
     "-c {{ params.chain }} -P {{ params.output_labels}}"
@@ -57,8 +61,7 @@ RMARKDOWN_CMD = (
 
 def create_fine_tuning_tasks(model, chain, model_path=None,
                              use_default_model_tokenizer=None,
-                             task_model_name=None, num_gpus=1):
-
+                             task_model_name=None, num_gpus=2, batch_size=64):
     input_path = FINE_TUNING_INPUT_PATH
     output_path_check = FINE_TUNING_OUTPUT_PATH_CHECK.format(
         model=task_model_name, chain=chain)
@@ -83,7 +86,8 @@ def create_fine_tuning_tasks(model, chain, model_path=None,
                 "output": output_path,
                 "chain": chain,
                 "model_path": model_path,
-                "use_default_model_tokenizer": use_default_model_tokenizer}
+                "use_default_model_tokenizer": use_default_model_tokenizer,
+                "batch_size": batch_size}
     )
 
     task_check >> task_train
