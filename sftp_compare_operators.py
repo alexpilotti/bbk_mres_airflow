@@ -39,7 +39,7 @@ class SFTPComparePathDatetimesSensor(BaseSensorOperator):
         for path in self.path2:
             if not self.sftp_hook.path_exists(path):
                 logger.info(f"Path does not exist: {path}")
-                continue
+                return True
 
             t = self.sftp_hook.get_mod_time(path)
             logger.debug(f"Mod time of \"{path}\": {t}")

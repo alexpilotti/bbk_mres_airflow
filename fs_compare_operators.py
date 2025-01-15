@@ -37,7 +37,7 @@ class ComparePathDatetimesSensor(BaseSensorOperator):
         for path in self.path2:
             if not os.path.exists(path):
                 logger.info(f"Path does not exist: {path}")
-                continue
+                return True
 
             t = os.path.getmtime(path)
             logger.debug(f"Mod time of \"{path}\": {t}")
