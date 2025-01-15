@@ -82,6 +82,7 @@ with DAG(
         raise Exception(f"Invalid chain: {chain}")
 
     region = Variable.get(VAR_REGION, None)
+
     git_branch = Variable.get(VAR_GIT_BRANCH, "main")
 
     task_info = [

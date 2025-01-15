@@ -125,7 +125,7 @@ def create_label_prediction_tasks(model, chain, region, model_path=None,
         task_id=(f"check_update_predict_{task_model_name}_{chain}_{region_str}"
                  f"_{pre_trained_str}"),
         path1=check_input_paths,
-        path2=output_metrics_path,
+        path2=[output_metrics_path, output_labels_path],
         timeout=0,
         trigger_rule="none_failed"
     )
