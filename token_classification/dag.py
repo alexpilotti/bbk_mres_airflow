@@ -115,14 +115,14 @@ with DAG(
                 (task_check_predict_ft,
                  task_predict_ft) = tasks.create_label_prediction_tasks(
                     model, chain, region, model_path_pt,
-                    use_default_model_tokenizer, task_model_name,
-                    pre_trained=False, git_branch=git_branch)
+                    use_default_model_tokenizer, task_model_name, False,
+                    num_gpus, git_branch)
 
                 (task_check_predict_pt,
                  task_predict_pt) = tasks.create_label_prediction_tasks(
                     model, chain, region, model_path_pt,
-                    use_default_model_tokenizer, task_model_name,
-                    pre_trained=True, git_branch=git_branch)
+                    use_default_model_tokenizer, task_model_name, True,
+                    num_gpus, git_branch)
 
                 task_train >> task_check_predict_ft
 

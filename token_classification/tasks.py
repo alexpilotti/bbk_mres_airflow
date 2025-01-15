@@ -18,8 +18,6 @@ PREDICT_LABELS_PATH = (
     f"{k8s.DATA_PATH}/" +
     "token_prediction_{model}_{chain}_{region}_{pre_trained}.parquet")
 
-PREDICT_GPUS = 2
-
 CUDA_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-cuda:latest"
 R_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-r:latest"
 
@@ -105,7 +103,7 @@ def create_fine_tuning_tasks(model, chain, region, model_path=None,
 def create_label_prediction_tasks(model, chain, region, model_path=None,
                                   use_default_model_tokenizer=None,
                                   task_model_name=None, pre_trained=True,
-                                  git_branch="main"):
+                                  num_gpus=2, git_branch="main"):
     region_str = region or "FULL"
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
 
@@ -140,7 +138,7 @@ def create_label_prediction_tasks(model, chain, region, model_path=None,
         task_id=(f"predict_{task_model_name}_{chain}_{region_str}"
                  f"_{pre_trained_str}"),
         image=CUDA_CONTAINER_IMAGE,
-        num_gpus=PREDICT_GPUS,
+        num_gpus=num_gpus,
         command=PREDICT_CMD,
         params={"model": model,
                 "input": input_path,
