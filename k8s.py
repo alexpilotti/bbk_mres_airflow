@@ -4,6 +4,7 @@ from airflow.providers.cncf.kubernetes.operators import pod
 
 K8S_CONN = "k8s_conn"
 POOL = "k8s_gpu_pool"
+K8S_POD_STARTUP_TIMEOUT_SECONDS = 1800
 
 DATA_PATH = "/data"
 
@@ -56,5 +57,6 @@ def create_pod_operator(task_id, image, command, params, num_gpus=0,
         kubernetes_conn_id=K8S_CONN,
         pool=POOL,
         params=params,
+        startup_timeout_seconds=K8S_POD_STARTUP_TIMEOUT_SECONDS,
         trigger_rule=trigger_rule
     )
