@@ -29,6 +29,9 @@ CHAIN_H = "H"
 CHAIN_L = "L"
 CHAIN_HL = "HL"
 
+VAR_REGION = "region"
+VAR_GIT_BRANCH = "bbk_mres_git_branch"
+
 EXTERNAL_MODELS_PATH = f"{k8s.DATA_PATH}/pre_trained_models"
 BALM_MODEL_PATH = f"{
     EXTERNAL_MODELS_PATH}/BALM-paired_LC-coherence_90-5-5-split_122222/"
@@ -78,6 +81,9 @@ with DAG(
     if chain not in [CHAIN_H, CHAIN_L, CHAIN_HL]:
         raise Exception(f"Invalid chain: {chain}")
 
+    region = Variable.get(VAR_REGION, None)
+    git_branch = Variable.get(VAR_GIT_BRANCH, "main")
+
     task_info = [
         (MODEL_ANTIBERTY, None, False, None, 2, 64),
         (MODEL_ANTIBERTA2, None, False, None, 2, 64),
@@ -101,19 +107,22 @@ with DAG(
         with TaskGroup(group_id=task_model_name) as tg:
             with TaskGroup(group_id=f"training") as tg1:
                 task_check_train, task_train = tasks.create_fine_tuning_tasks(
-                    model, chain, model_path_pt, use_default_model_tokenizer,
-                    task_model_name, num_gpus, batch_size)
+                    model, chain, region, model_path_pt,
+                    use_default_model_tokenizer, task_model_name, num_gpus,
+                    batch_size, git_branch)
 
             with TaskGroup(group_id=f"predict") as tg1:
                 (task_check_predict_ft,
                  task_predict_ft) = tasks.create_label_prediction_tasks(
-                    model, chain, model_path_pt, use_default_model_tokenizer,
-                    task_model_name, pre_trained=False)
+                    model, chain, region, model_path_pt,
+                    use_default_model_tokenizer, task_model_name,
+                    pre_trained=False, git_branch=git_branch)
 
                 (task_check_predict_pt,
                  task_predict_pt) = tasks.create_label_prediction_tasks(
-                    model, chain, model_path_pt, use_default_model_tokenizer,
-                    task_model_name, pre_trained=True)
+                    model, chain, region, model_path_pt,
+                    use_default_model_tokenizer, task_model_name,
+                    pre_trained=True, git_branch=git_branch)
 
                 task_train >> task_check_predict_ft
 
@@ -125,15 +134,14 @@ with DAG(
             TOKEN_PREDICTION_LABELS_RMD,
             OUTPUT_PATH,
             TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME,
-            chain)
+            chain, region, git_branch)
 
         token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
             "token_prediction_metrics_rmd",
             TOKEN_PREDICTION_METRICS_RMD,
             OUTPUT_PATH,
             TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME,
-            chain)
-
+            chain, region, git_branch)
 
         predict_tasks >> token_prediction_labels_rmd
         predict_tasks >> token_prediction_metrics_rmd
