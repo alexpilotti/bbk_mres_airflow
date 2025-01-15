@@ -82,6 +82,8 @@ with DAG(
         raise Exception(f"Invalid chain: {chain}")
 
     region = Variable.get(VAR_REGION, None)
+    if region == "FULL":
+        region = None
 
     git_branch = Variable.get(VAR_GIT_BRANCH, "main")
 
