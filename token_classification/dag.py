@@ -88,15 +88,15 @@ with DAG(
     git_branch = Variable.get(VAR_GIT_BRANCH, "main")
 
     task_info = [
-        (MODEL_ANTIBERTY, None, False, None, 2, 64),
-        (MODEL_ANTIBERTA2, None, False, None, 2, 64),
-        (MODEL_BALM_PAIRED, BALM_MODEL_PATH, False, None, 2, 64),
-        (MODEL_ESM2_8M, None, False, None, 2, 64),
-        (MODEL_ESM2_35M, None, False, None, 2, 64),
-        (MODEL_ESM2_150M, None, False, None, 2, 64),
-        (MODEL_ESM2_650M, None, False, None, 2, 64),
-        (MODEL_ESM2_650M, FT_ESM2_MODEL_PATH, True, MODEL_NAME_FT_ESM2, 2, 64),
-        (MODEL_ESM2_3B, None, False, None, 4, 64),
+        (MODEL_ANTIBERTY, None, False, None, 4, 64),
+        (MODEL_ANTIBERTA2, None, False, None, 4, 64),
+        (MODEL_BALM_PAIRED, BALM_MODEL_PATH, False, None, 4, 64),
+        (MODEL_ESM2_8M, None, False, None, 4, 64),
+        (MODEL_ESM2_35M, None, False, None, 4, 64),
+        (MODEL_ESM2_150M, None, False, None, 4, 64),
+        (MODEL_ESM2_650M, None, False, None, 8, 64),
+        (MODEL_ESM2_650M, FT_ESM2_MODEL_PATH, True, MODEL_NAME_FT_ESM2, 8, 64),
+        (MODEL_ESM2_3B, None, False, None, 10, 64),
         (MODEL_ESM2_15B, None, False, None, 20, 24)
     ]
 
