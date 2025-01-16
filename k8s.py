@@ -4,7 +4,7 @@ from airflow.providers.cncf.kubernetes.operators import pod
 
 K8S_CONN = "k8s_conn"
 POOL = "k8s_gpu_pool"
-K8S_POD_STARTUP_TIMEOUT_SECONDS = 1800
+K8S_POD_STARTUP_TIMEOUT_SECONDS = 7200
 
 DATA_PATH = "/data"
 
