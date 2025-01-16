@@ -158,6 +158,10 @@ with DAG(
             html_content=(
                 '<p>'
                 'Start time: {{ data_interval_start }}<br/>'
+                '</br>'
+                'Chain: <b>{{ var.value.chain}}</b></br>'
+                'Region: <b>{{ var.value.region}}</b></br>'
+                'Branch: <b>{{ var.value.bbk_mres_git_branch}}</b></br>'
                 '</p>'
                 '<h3>Results</h3>'
                 '<p>'
