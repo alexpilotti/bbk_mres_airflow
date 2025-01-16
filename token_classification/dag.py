@@ -160,6 +160,7 @@ with DAG(
                 'Start time: {{ data_interval_start }}<br/>'
                 '</p>'
                 '<h3>Results</h3>'
+                '<p>'
                 '<ul>'
                 '  <li>'
                 '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
