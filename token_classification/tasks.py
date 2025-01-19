@@ -23,8 +23,10 @@ R_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-r:latest"
 
 FINE_TUNING_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
+    "{% if params.accelerate %}"
     "accelerate launch --multi_gpu --mixed_precision fp16 "
-    "--num_processes=$(nvidia-smi --list-gpus | wc -l) "
+    "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
+    "{% else %}python{% endif %} "
     "attention_comparison/cli.py "
     "token-fine-tuning -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
@@ -37,8 +39,10 @@ FINE_TUNING_CMD = (
 
 PREDICT_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
+    "{% if params.accelerate %}"
     "accelerate launch --multi_gpu --mixed_precision fp16 "
-    "--num_processes=$(nvidia-smi --list-gpus | wc -l) "
+    "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
+    "{% else %}python{% endif %} "
     "attention_comparison/cli.py "
     "token-prediction -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output_metrics }} "
@@ -62,7 +66,7 @@ RMARKDOWN_CMD = (
 def create_fine_tuning_tasks(model, chain, region, model_path=None,
                              use_default_model_tokenizer=None,
                              task_model_name=None, num_gpus=2, batch_size=64,
-                             git_branch="main"):
+                             use_accelerate=False, git_branch="main"):
     region_str = region or "FULL"
 
     input_path = FINE_TUNING_INPUT_PATH
@@ -92,6 +96,7 @@ def create_fine_tuning_tasks(model, chain, region, model_path=None,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer,
                 "batch_size": batch_size,
+                "accelerate": use_accelerate,
                 "git_branch": git_branch}
     )
 
@@ -103,7 +108,8 @@ def create_fine_tuning_tasks(model, chain, region, model_path=None,
 def create_label_prediction_tasks(model, chain, region, model_path=None,
                                   use_default_model_tokenizer=None,
                                   task_model_name=None, pre_trained=True,
-                                  num_gpus=2, git_branch="main"):
+                                  num_gpus=2, use_accelerate=False,
+                                  git_branch="main"):
     region_str = region or "FULL"
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
 
@@ -148,6 +154,7 @@ def create_label_prediction_tasks(model, chain, region, model_path=None,
                 "region": region,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer,
+                "accelerate": use_accelerate,
                 "git_branch": git_branch}
     )
 
