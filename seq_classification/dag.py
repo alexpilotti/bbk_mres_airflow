@@ -37,6 +37,8 @@ CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
 
 EXTERNAL_MODELS_PATH = f"{common.DATA_PATH}/pre_trained_models"
 
+DEFAULT_TRAINING_GPUS = 2
+
 
 with DAG(
     "BBK-MRes-sequence-classification",
@@ -138,6 +140,9 @@ with DAG(
         ucl_cluster = model_config.get("ucl_cluster", False)
         use_default_model_tokenizer = model_config.get(
             "use_default_model_tokenizer")
+        use_accelerate = model_config.get("accelerate", False)
+        training_gpus = model_config.get(
+            "training_gpus", DEFAULT_TRAINING_GPUS)
         model_path_pt = None
         ucl_model_path = None
 
@@ -153,7 +158,8 @@ with DAG(
                     (check_update_model,
                      training) = tasks.create_training_tasks(
                         model, chain, model_path_pt,
-                        use_default_model_tokenizer, task_model_name)
+                        use_default_model_tokenizer, task_model_name,
+                        use_accelerate, training_gpus)
 
                     task_split_data >> check_update_model
                     last_training_task = training

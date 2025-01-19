@@ -405,7 +405,7 @@ def create_shuffle_labels_tasks(chain, use_accelerate=False,
 def create_training_tasks(model, chain, model_path=None,
                           use_default_model_tokenizer=None,
                           task_model_name=None, use_accelerate=False,
-                          git_branch="main"):
+                          num_gpus=NUM_GPUS, git_branch="main"):
     input_path = TRAINING_INPUT_PATH.format(chain=chain)
     output_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
         model=task_model_name, chain=chain)
@@ -422,7 +422,7 @@ def create_training_tasks(model, chain, model_path=None,
     task_train = k8s.create_pod_operator(
         task_id=f"training_{task_model_name}_{chain}",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=num_gpus,
         command=TRAINING_CMD,
         params={"model": model,
                 "input": input_path,
