@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 
 from airflow.models.dag import DAG
 
@@ -19,17 +20,7 @@ VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
 GIT_BBK_MRES_DEFAULT_BRANCH = "main"
 GIT_DEFAULT_SGE_UTILS_BRANCH = "master"
 
-MODEL_BALM_PAIRED = "BALM-paired"
-MODEL_ANTIBERTY = "AntiBERTy"
-MODEL_ANTIBERTA2 = "AntiBERTa2"
-MODEL_ESM2_650M = "ESM2-650M"
-MODEL_ESM2_150M = "ESM2-150M"
-MODEL_ESM2_15B = "ESM2-15B"
-MODEL_ESM2_35M = "ESM2-35M"
-MODEL_ESM2_3B = "ESM2-3B"
-MODEL_ESM2_8M = "ESM2-8M"
-
-MODEL_NAME_FT_ESM2 = "ft-ESM2"
+VAR_UCL_EXTERNAL_MODELS_PATH = "ucl_external_models_path"
 
 CHAIN_H = "H"
 CHAIN_L = "L"
@@ -45,16 +36,6 @@ CV_METRICS_RMD = "metrics.Rmd"
 CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
 
 EXTERNAL_MODELS_PATH = f"{common.DATA_PATH}/pre_trained_models"
-BALM_MODEL_PATH = (
-    f"{EXTERNAL_MODELS_PATH}/" +
-    "BALM-paired_LC-coherence_90-5-5-split_122222/")
-FT_ESM2_MODEL_PATH = f"{EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/"
-
-UCL_EXTERNAL_MODELS_PATH = (
-    "/SAN/fraternalilab/bcells/apilotti/kleinstein-lab-projects/"
-    "Wang2024/models")
-UCL_FT_ESM2_MODEL_PATH = (
-    f"{UCL_EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/")
 
 
 with DAG(
@@ -98,18 +79,7 @@ with DAG(
         ssh_conn_id="ucl_ssh_conn", cmd_timeout=None)
     ucl_sftp_hook = SFTPHook(ssh_hook=ucl_ssh_hook)
 
-    task_info = [
-        (False, MODEL_ANTIBERTY, chain, None, None, False, None),
-        (False, MODEL_ANTIBERTA2, chain, None, None, False, None),
-        (False, MODEL_BALM_PAIRED, chain, BALM_MODEL_PATH, None, False,
-         None),
-        (False, MODEL_ESM2_8M, chain, None, None, False, None),
-        (False, MODEL_ESM2_35M, chain, None, None, False, None),
-        (False, MODEL_ESM2_150M, chain, None, None, False, None),
-        (False, MODEL_ESM2_650M, chain, None, None, False, None),
-        (False, MODEL_ESM2_650M, chain, FT_ESM2_MODEL_PATH,
-         UCL_FT_ESM2_MODEL_PATH, True, MODEL_NAME_FT_ESM2)
-    ]
+    model_tasks_config = common.load_config()["seq_classification"]["models"]
 
     with TaskGroup(group_id="git") as tg:
         git_branch = Variable.get(
@@ -160,10 +130,22 @@ with DAG(
 
     predict_tasks = []
 
-    for (ucl_cluster, model, chain, model_path_pt, ucl_model_path,
-         use_default_model_tokenizer, task_model_name) in task_info:
-        if not task_model_name:
-            task_model_name = model
+    ucl_external_models_path = Variable.get(VAR_UCL_EXTERNAL_MODELS_PATH, "")
+
+    for model_config in model_tasks_config:
+        model = model_config["model"]
+        model_path = model_config.get("path")
+        ucl_cluster = model_config.get("ucl_cluster", False)
+        use_default_model_tokenizer = model_config.get(
+            "use_default_model_tokenizer")
+        model_path_pt = None
+        ucl_model_path = None
+
+        if model_path:
+            model_path_pt = os.path.join(EXTERNAL_MODELS_PATH, model_path)
+            ucl_model_path = os.path.join(ucl_external_models_path, model_path)
+
+        task_model_name = model_config.get("task_model_name", model)
 
         with TaskGroup(group_id=task_model_name) as tg:
             if not ucl_cluster:
