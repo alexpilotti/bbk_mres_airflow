@@ -24,7 +24,9 @@ MODEL_ANTIBERTY = "AntiBERTy"
 MODEL_ANTIBERTA2 = "AntiBERTa2"
 MODEL_ESM2_650M = "ESM2-650M"
 MODEL_ESM2_150M = "ESM2-150M"
+MODEL_ESM2_15B = "ESM2-15B"
 MODEL_ESM2_35M = "ESM2-35M"
+MODEL_ESM2_3B = "ESM2-3B"
 MODEL_ESM2_8M = "ESM2-8M"
 
 MODEL_NAME_FT_ESM2 = "ft-ESM2"
@@ -33,18 +35,19 @@ CHAIN_H = "H"
 CHAIN_L = "L"
 CHAIN_HL = "HL"
 
-ATTENTIONS_RMD = f"{common.BASE_PATH}/attention_comparison.Rmd"
+ATTENTIONS_RMD = "attention_comparison.Rmd"
 ATTENTIONS_RMD_OUTPUT_FILENAME = "attention_comparison.html"
 
-CV_AUROC_RMD = f"{common.BASE_PATH}/cv_auroc.Rmd"
+CV_AUROC_RMD = "cv_auroc.Rmd"
 CV_AUROC_RMD_OUTPUT_FILENAME = "cv_auroc.html"
 
-CV_METRICS_RMD = f"{common.BASE_PATH}/metrics.Rmd"
+CV_METRICS_RMD = "metrics.Rmd"
 CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
 
-EXTERNAL_MODELS_PATH = "~/kleinstein-lab-projects/Wang2024/models"
-BALM_MODEL_PATH = f"{
-    EXTERNAL_MODELS_PATH}/BALM-paired_LC-coherence_90-5-5-split_122222/"
+EXTERNAL_MODELS_PATH = f"{common.DATA_PATH}/pre_trained_models"
+BALM_MODEL_PATH = (
+    f"{EXTERNAL_MODELS_PATH}/" +
+    "BALM-paired_LC-coherence_90-5-5-split_122222/")
 FT_ESM2_MODEL_PATH = f"{EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/"
 
 UCL_EXTERNAL_MODELS_PATH = (
@@ -91,9 +94,6 @@ with DAG(
     if chain not in [CHAIN_H, CHAIN_L, CHAIN_HL]:
         raise Exception(f"Invalid chain: {chain}")
 
-    ssh_hook = SSHHook(ssh_conn_id="ssh_conn", cmd_timeout=None)
-    sftp_hook = SFTPHook("sftp_conn")
-
     ucl_ssh_hook = ssh_jump_hook.SSHJumpHook(
         ssh_conn_id="ucl_ssh_conn", cmd_timeout=None)
     ucl_sftp_hook = SFTPHook(ssh_hook=ucl_ssh_hook)
@@ -106,8 +106,8 @@ with DAG(
         (False, MODEL_ESM2_8M, chain, None, None, False, None),
         (False, MODEL_ESM2_35M, chain, None, None, False, None),
         (False, MODEL_ESM2_150M, chain, None, None, False, None),
-        (True, MODEL_ESM2_650M, chain, None, None, False, None),
-        (True, MODEL_ESM2_650M, chain, FT_ESM2_MODEL_PATH,
+        (False, MODEL_ESM2_650M, chain, None, None, False, None),
+        (False, MODEL_ESM2_650M, chain, FT_ESM2_MODEL_PATH,
          UCL_FT_ESM2_MODEL_PATH, True, MODEL_NAME_FT_ESM2)
     ]
 
@@ -123,10 +123,6 @@ with DAG(
             GIT_DEFAULT_SGE_UTILS_BRANCH, tasks.UCL_SGE_UTILS_BASE_DIR,
             hard_reset=True)
 
-        bbk_mres_git_reset_task = git_tasks.create_git_reset_task(
-            "bbk_mres_git_reset", ssh_hook, git_branch,
-            common.BASE_PATH, hard_reset=True)
-
     attention_tasks = []
     svm_embeddings_prediction_tasks = []
 
@@ -134,36 +130,22 @@ with DAG(
      task_remove_sim_seqs_train,
      task_check_remove_sim_seqs_test,
      task_remove_sim_seqs_test) = tasks.create_remove_similar_sequences_tasks(
-        ssh_hook, sftp_hook, chain)
+        chain)
 
     with TaskGroup(group_id="adjust_label_counts") as tg:
-        '''
-        (task_check_undersample_train,
-         task_undersample_train) = tasks.create_undersample_training_tasks(
-            ssh_hook, sftp_hook, chain)
-        '''
-
         (task_check_undersample_test,
          task_undersample_test) = tasks.create_undersample_test_tasks(
-            ssh_hook, sftp_hook, chain)
+            chain)
 
     (task_check_split_data,
      task_split_data) = tasks.create_split_data_tasks(
-         ssh_hook, sftp_hook, chain)
+         chain)
 
     (task_check_shuffle_labels,
      task_shuffle_labels) = tasks.create_shuffle_labels_tasks(
-         ssh_hook, sftp_hook, chain)
+         chain)
 
-    bbk_mres_git_reset_task >> [
-        task_remove_sim_seqs_train,
-        task_remove_sim_seqs_test,
-        # task_undersample_train,
-        task_undersample_test,
-        task_split_data,
-        task_shuffle_labels
-    ]
-
+    task_remove_sim_seqs_train >> task_check_remove_sim_seqs_test
     task_remove_sim_seqs_train >> task_check_shuffle_labels
     task_remove_sim_seqs_train >> task_check_split_data
     # task_undersample_train >> task_check_split_data
@@ -171,11 +153,10 @@ with DAG(
     task_remove_sim_seqs_test >> task_check_undersample_test
     # task_remove_sim_seqs_train >> task_check_undersample_train
 
-    (get_tmp_input,
-     ucl_put_input) = tasks.create_ucl_upload_sequences_task(
-         sftp_hook, ucl_sftp_hook, chain)
+    ucl_put_input = tasks.create_ucl_upload_sequences_task(
+        ucl_sftp_hook, chain)
 
-    task_split_data >> get_tmp_input
+    task_split_data >> ucl_put_input
 
     predict_tasks = []
 
@@ -189,7 +170,7 @@ with DAG(
                 with TaskGroup(group_id=f"training") as tg1:
                     (check_update_model,
                      training) = tasks.create_training_tasks(
-                        ssh_hook, sftp_hook, model, chain, model_path_pt,
+                        model, chain, model_path_pt,
                         use_default_model_tokenizer, task_model_name)
 
                     task_split_data >> check_update_model
@@ -197,11 +178,11 @@ with DAG(
             else:
                 with TaskGroup(group_id=f"ucl_training") as tg1:
                     (check_update_model, ucl_training,
-                     get_model_zip, ucl_delete_model_zip, put_model_zip,
+                     get_model_zip, ucl_delete_model_zip,
                      unzip_model) = tasks.create_ucl_training_tasks(
-                        ucl_ssh_hook, ucl_sftp_hook, ssh_hook, sftp_hook,
-                        model, chain, ucl_model_path,
-                        use_default_model_tokenizer, task_model_name)
+                        ucl_ssh_hook, ucl_sftp_hook, model, chain,
+                        ucl_model_path, use_default_model_tokenizer,
+                        task_model_name)
 
                     ucl_bbk_mres_git_reset_task >> ucl_training
                     ucl_sge_utils_git_reset_task >> ucl_training
@@ -213,24 +194,24 @@ with DAG(
             with TaskGroup(group_id=f"predict") as tg1:
                 (check_update_predict_metrics_pt,
                  predict_metrics_pt) = tasks.create_predict_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path_pt,
+                    model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name)
 
                 (check_update_predict_metrics_ft,
                  predict_metrics_ft) = tasks.create_predict_tasks(
-                    ssh_hook, sftp_hook, model, chain, None,
+                    model, chain, None,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
             with TaskGroup(group_id=f"attentions") as tg1:
                 (check_updated_attentions_pt,
                  attentions_pt) = tasks.create_attention_comparison_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path_pt,
+                    model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name)
 
                 (check_updated_attentions_ft,
                  attentions_ft) = tasks.create_attention_comparison_tasks(
-                    ssh_hook, sftp_hook, model, chain, None,
+                    model, chain, None,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
@@ -239,14 +220,14 @@ with DAG(
                  get_embeddings_pt, check_svm_emb_pred_pt,
                  svm_emb_pred_pt, check_svm_emb_pred_pt_shuffled,
                  svm_emb_pred_pt_shuffled) = tasks.create_embeddings_tasks(
-                    ssh_hook, sftp_hook, model, chain, model_path_pt,
+                    model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name)
 
                 (check_updated_embeddings_ft,
                  get_embeddings_ft, check_svm_emb_pred_ft,
                  svm_emb_pred_ft, check_svm_emb_pred_ft_shuffled,
                  svm_emb_pred_ft_shuffled) = tasks.create_embeddings_tasks(
-                    ssh_hook, sftp_hook, model, chain, None,
+                    model, chain, None,
                     use_default_model_tokenizer, task_model_name,
                     pre_trained=False)
 
@@ -268,13 +249,6 @@ with DAG(
             last_training_task >> check_updated_attentions_ft
             last_training_task >> check_updated_embeddings_ft
 
-            bbk_mres_git_reset_task >> [
-                svm_emb_pred_pt,
-                svm_emb_pred_pt_shuffled,
-                svm_emb_pred_ft,
-                svm_emb_pred_ft_shuffled
-            ]
-
             predict_tasks.extend([predict_metrics_pt, predict_metrics_ft])
             attention_tasks.extend([attentions_pt, attentions_ft])
             svm_embeddings_prediction_tasks.extend(
@@ -283,7 +257,6 @@ with DAG(
 
     with TaskGroup(group_id=f"reports") as tg:
         process_attention_comparison_rmd = tasks.create_rmarkdown_task(
-            ssh_hook,
             "process_attention_comparison_rmd",
             ATTENTIONS_RMD,
             common.OUTPUT_PATH,
@@ -293,7 +266,6 @@ with DAG(
         process_attention_comparison_rmd << attention_tasks
 
         process_cv_auroc_rmd = tasks.create_rmarkdown_task(
-            ssh_hook,
             "process_cv_auroc_rmd",
             CV_AUROC_RMD,
             common.OUTPUT_PATH,
@@ -303,7 +275,6 @@ with DAG(
         process_cv_auroc_rmd << svm_embeddings_prediction_tasks
 
         process_metrics_rmd = tasks.create_rmarkdown_task(
-            ssh_hook,
             "metrics_rmd",
             CV_METRICS_RMD,
             common.OUTPUT_PATH,
@@ -311,12 +282,6 @@ with DAG(
             chain)
 
         process_metrics_rmd << predict_tasks
-
-        bbk_mres_git_reset_task >> [
-            process_attention_comparison_rmd,
-            process_cv_auroc_rmd,
-            process_metrics_rmd
-        ]
 
         data_url = f"{utils.get_base_url()}/data/"
 
