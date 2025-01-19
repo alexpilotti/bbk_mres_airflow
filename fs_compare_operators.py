@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from airflow import exceptions
 from airflow.sensors.base import BaseSensorOperator
@@ -8,16 +9,27 @@ from airflow.utils.decorators import apply_defaults
 
 logger = logging.getLogger(__name__)
 
+SLEEP_SECS = 2
+
 
 class ComparePathDatetimesSensor(BaseSensorOperator):
     @apply_defaults
-    def __init__(self, path1, path2, *args, **kwargs):
+    def __init__(self, path1, path2, wait_seconds=SLEEP_SECS, *args, **kwargs):
         super(ComparePathDatetimesSensor, self).__init__(*args, **kwargs)
 
         self.path1 = [path1] if isinstance(path1, str) else path1
         self.path2 = [path2] if isinstance(path2, str) else path2
+        self.wait_seconds = wait_seconds
 
     def poke(self, context):
+        if self.wait_seconds > 0:
+            # This is needed to ensure any cached attributes (e.g. NFS)
+            # have time to be persisted. When mounting NFS, make sure that
+            # acregmin and acregmax are set to a smaller value.
+            logger.debug(f"Wait {self.wait_seconds} seconds to ensure that "
+                         "file attributes are up to date")
+            time.sleep(self.wait_seconds)
+
         max_path1_time = None
         path1 = None
         for path in self.path1:
