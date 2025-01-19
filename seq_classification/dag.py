@@ -77,6 +77,9 @@ with DAG(
     if chain not in [CHAIN_H, CHAIN_L, CHAIN_HL]:
         raise Exception(f"Invalid chain: {chain}")
 
+    git_branch = Variable.get(
+        VAR_GIT_BBK_MRES_BRANCH, default_var=GIT_BBK_MRES_DEFAULT_BRANCH)
+
     ucl_ssh_hook = ssh_jump_hook.SSHJumpHook(
         ssh_conn_id="ucl_ssh_conn", cmd_timeout=None)
     ucl_sftp_hook = SFTPHook(ssh_hook=ucl_ssh_hook)
@@ -84,8 +87,6 @@ with DAG(
     model_tasks_config = common.load_config()["seq_classification"]["models"]
 
     with TaskGroup(group_id="git") as tg:
-        git_branch = Variable.get(
-            VAR_GIT_BBK_MRES_BRANCH, default_var=GIT_BBK_MRES_DEFAULT_BRANCH)
         ucl_bbk_mres_git_reset_task = git_tasks.create_git_reset_task(
             "ucl_bbk_mres_git_reset", ucl_ssh_hook, git_branch,
             tasks.UCL_BASE_DIR, hard_reset=True)
@@ -102,20 +103,20 @@ with DAG(
      task_remove_sim_seqs_train,
      task_check_remove_sim_seqs_test,
      task_remove_sim_seqs_test) = tasks.create_remove_similar_sequences_tasks(
-        chain)
+        chain, git_branch=git_branch)
 
     with TaskGroup(group_id="adjust_label_counts") as tg:
         (task_check_undersample_test,
          task_undersample_test) = tasks.create_undersample_test_tasks(
-            chain)
+            chain, git_branch=git_branch)
 
     (task_check_split_data,
      task_split_data) = tasks.create_split_data_tasks(
-         chain)
+         chain, git_branch=git_branch)
 
     (task_check_shuffle_labels,
      task_shuffle_labels) = tasks.create_shuffle_labels_tasks(
-         chain)
+         chain, git_branch=git_branch)
 
     task_remove_sim_seqs_train >> task_check_remove_sim_seqs_test
     task_remove_sim_seqs_train >> task_check_shuffle_labels
@@ -159,7 +160,7 @@ with DAG(
                      training) = tasks.create_training_tasks(
                         model, chain, model_path_pt,
                         use_default_model_tokenizer, task_model_name,
-                        use_accelerate, training_gpus)
+                        use_accelerate, training_gpus, git_branch)
 
                     task_split_data >> check_update_model
                     last_training_task = training
@@ -183,25 +184,29 @@ with DAG(
                 (check_update_predict_metrics_pt,
                  predict_metrics_pt) = tasks.create_predict_tasks(
                     model, chain, model_path_pt,
-                    use_default_model_tokenizer, task_model_name)
+                    use_default_model_tokenizer, task_model_name,
+                    git_branch=git_branch)
 
                 (check_update_predict_metrics_ft,
                  predict_metrics_ft) = tasks.create_predict_tasks(
                     model, chain, None,
                     use_default_model_tokenizer, task_model_name,
-                    pre_trained=False)
+                    pre_trained=False,
+                    git_branch=git_branch)
 
             with TaskGroup(group_id=f"attentions") as tg1:
                 (check_updated_attentions_pt,
                  attentions_pt) = tasks.create_attention_comparison_tasks(
                     model, chain, model_path_pt,
-                    use_default_model_tokenizer, task_model_name)
+                    use_default_model_tokenizer, task_model_name,
+                    git_branch=git_branch)
 
                 (check_updated_attentions_ft,
                  attentions_ft) = tasks.create_attention_comparison_tasks(
                     model, chain, None,
                     use_default_model_tokenizer, task_model_name,
-                    pre_trained=False)
+                    pre_trained=False,
+                    git_branch=git_branch)
 
             with TaskGroup(group_id=f"embeddings") as tg1:
                 (check_updated_embeddings_pt,
@@ -209,7 +214,8 @@ with DAG(
                  svm_emb_pred_pt, check_svm_emb_pred_pt_shuffled,
                  svm_emb_pred_pt_shuffled) = tasks.create_embeddings_tasks(
                     model, chain, model_path_pt,
-                    use_default_model_tokenizer, task_model_name)
+                    use_default_model_tokenizer, task_model_name,
+                    git_branch=git_branch)
 
                 (check_updated_embeddings_ft,
                  get_embeddings_ft, check_svm_emb_pred_ft,
@@ -217,7 +223,8 @@ with DAG(
                  svm_emb_pred_ft_shuffled) = tasks.create_embeddings_tasks(
                     model, chain, None,
                     use_default_model_tokenizer, task_model_name,
-                    pre_trained=False)
+                    pre_trained=False,
+                    git_branch=git_branch)
 
             task_shuffle_labels >> [
                 check_svm_emb_pred_pt_shuffled,
@@ -249,7 +256,7 @@ with DAG(
             ATTENTIONS_RMD,
             common.OUTPUT_PATH,
             ATTENTIONS_RMD_OUTPUT_FILENAME,
-            chain)
+            chain, git_branch=git_branch)
 
         process_attention_comparison_rmd << attention_tasks
 
@@ -258,7 +265,7 @@ with DAG(
             CV_AUROC_RMD,
             common.OUTPUT_PATH,
             CV_AUROC_RMD_OUTPUT_FILENAME,
-            chain)
+            chain, git_branch=git_branch)
 
         process_cv_auroc_rmd << svm_embeddings_prediction_tasks
 
@@ -267,7 +274,7 @@ with DAG(
             CV_METRICS_RMD,
             common.OUTPUT_PATH,
             CV_METRICS_RMD_OUTPUT_FILENAME,
-            chain)
+            chain, git_branch=git_branch)
 
         process_metrics_rmd << predict_tasks
 
