@@ -42,8 +42,6 @@ DEFAULT_TRAINING_GPUS = 2
 
 with DAG(
     "BBK-MRes-sequence-classification",
-    # These args will get passed on to each operator
-    # You can override them on a per-task basis during operator initialization
     default_args={
         "depends_on_past": False,
         "email": ["apilot02@student.bbk.ac.uk"],
