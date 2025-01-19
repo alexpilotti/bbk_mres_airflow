@@ -13,10 +13,12 @@ FINE_TUNING_OUTPUT_PATH_CHECK = FINE_TUNING_OUTPUT_PATH + "config.json"
 
 PREDICT_METRICS_PATH = (
     f"{k8s.DATA_PATH}/" +
-    "token_predict_metrics_{model}_{chain}_{region}_{pre_trained}.json")
+    "token_predict_metrics_{model}_{chain}_{fine_tuning_region}_" +
+    "{predict_region}_{pre_trained}.json")
 PREDICT_LABELS_PATH = (
     f"{k8s.DATA_PATH}/" +
-    "token_prediction_{model}_{chain}_{region}_{pre_trained}.parquet")
+    "token_prediction_{model}_{chain}_{fine_tuning_region}_" +
+    "{predict_region}_{pre_trained}.parquet")
 
 CUDA_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-cuda:latest"
 R_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-r:latest"
@@ -105,31 +107,33 @@ def create_fine_tuning_tasks(model, chain, region, model_path=None,
     return task_check, task_train
 
 
-def create_label_prediction_tasks(model, chain, region, model_path=None,
+def create_label_prediction_tasks(model, chain, fine_tuning_region,
+                                  predict_region, model_path=None,
                                   use_default_model_tokenizer=None,
                                   task_model_name=None, pre_trained=True,
                                   num_gpus=2, use_accelerate=False,
                                   git_branch="main"):
-    region_str = region or "FULL"
+    fine_tuning_region_str = fine_tuning_region or "FULL"
+    predict_region_str = predict_region or "FULL"
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
 
     input_path = FINE_TUNING_INPUT_PATH
     output_metrics_path = PREDICT_METRICS_PATH.format(
-        model=task_model_name, chain=chain, region=region_str,
-        pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, predict_region=predict_region_str,
+        fine_tuning_region=fine_tuning_region_str, pre_trained=pre_trained_str)
     output_labels_path = PREDICT_LABELS_PATH.format(
-        model=task_model_name, chain=chain, region=region_str,
-        pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, predict_region=predict_region_str,
+        fine_tuning_region=fine_tuning_region_str, pre_trained=pre_trained_str)
 
     check_input_paths = [input_path]
     if not pre_trained:
         model_path_check = FINE_TUNING_OUTPUT_PATH_CHECK.format(
-            model=task_model_name, chain=chain, region=region_str)
+            model=task_model_name, chain=chain, region=fine_tuning_region_str)
         check_input_paths.append(model_path_check)
 
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
-        task_id=(f"check_update_predict_{task_model_name}_{chain}_{region_str}"
-                 f"_{pre_trained_str}"),
+        task_id=(f"check_update_predict_{task_model_name}_{chain}_"
+                 f"{predict_region_str}_{pre_trained_str}"),
         path1=check_input_paths,
         path2=[output_metrics_path, output_labels_path],
         timeout=0,
@@ -138,11 +142,11 @@ def create_label_prediction_tasks(model, chain, region, model_path=None,
 
     if not pre_trained:
         model_path = FINE_TUNING_OUTPUT_PATH.format(
-            model=task_model_name, chain=chain, region=region_str)
+            model=task_model_name, chain=chain, region=predict_region_str)
 
     task_predict = k8s.create_pod_operator(
-        task_id=(f"predict_{task_model_name}_{chain}_{region_str}"
-                 f"_{pre_trained_str}"),
+        task_id=(f"predict_{task_model_name}_{chain}_"
+                 f"{predict_region_str}_{pre_trained_str}"),
         image=CUDA_CONTAINER_IMAGE,
         num_gpus=num_gpus,
         command=PREDICT_CMD,
@@ -151,7 +155,7 @@ def create_label_prediction_tasks(model, chain, region, model_path=None,
                 "output_metrics": output_metrics_path,
                 "output_labels": output_labels_path,
                 "chain": chain,
-                "region": region,
+                "region": predict_region,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer,
                 "accelerate": use_accelerate,
@@ -164,7 +168,8 @@ def create_label_prediction_tasks(model, chain, region, model_path=None,
 
 
 def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
-                          output_filename, chain, region, git_branch="main"):
+                          output_filename, chain, fine_tuning_region,
+                          predict_region, git_branch="main"):
     return k8s.create_pod_operator(
         task_id=task_id,
         image=R_CONTAINER_IMAGE,
@@ -172,7 +177,9 @@ def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
         params={"rmd_path": rmd_path,
                 "output_base_dir": output_base_dir,
                 "output_filename": output_filename,
-                "params": f"chain='{chain}', region='{region or "FULL"}', "
+                "params": f"chain='{chain}', fine_tuning_region="
+                          f"'{fine_tuning_region or "FULL"}', "
+                          f"predict_region='{predict_region or "FULL"}', "
                           f"data_path='{k8s.DATA_PATH}'",
                 "git_branch": git_branch},
         trigger_rule="none_failed"

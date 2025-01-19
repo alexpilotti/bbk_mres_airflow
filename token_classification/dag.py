@@ -40,11 +40,14 @@ FT_ESM2_MODEL_PATH = f"{EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/"
 OUTPUT_PATH = f"{k8s.DATA_PATH}/output"
 
 TOKEN_PREDICTION_LABELS_RMD = f"token_prediction_labels.Rmd"
-TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME = "token_prediction_labels.html"
+TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME = (
+    "token_prediction_labels_{predict_region}.html")
 
 TOKEN_PREDICTION_METRICS_RMD = f"token_prediction_metrics.Rmd"
-TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME = "token_prediction_metrics.html"
+TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME = (
+    "token_prediction_metrics_{predict_region}.html")
 
+REGIONS = ["CDR1", "CDR2", "CDR3"]
 
 with DAG(
     "BBK-MRes-token-classification",
@@ -81,9 +84,9 @@ with DAG(
     if chain not in [CHAIN_H, CHAIN_L, CHAIN_HL]:
         raise Exception(f"Invalid chain: {chain}")
 
-    region = Variable.get(VAR_REGION, None)
-    if region == "FULL":
-        region = None
+    fine_tuning_region = Variable.get(VAR_REGION, None)
+    if fine_tuning_region == "FULL":
+        fine_tuning_region = None
 
     git_branch = Variable.get(VAR_GIT_BRANCH, "main")
 
@@ -103,6 +106,12 @@ with DAG(
 
     predict_tasks = []
 
+    predict_regions = [fine_tuning_region]
+    if not fine_tuning_region:
+        # When fine tuning the whole chain, perform the prediction on the
+        # full chain and all CDR regions
+        predict_regions += REGIONS
+
     for (model, model_path_pt, use_default_model_tokenizer,
          task_model_name, num_gpus, batch_size, use_accelerate) in task_info:
         if not task_model_name:
@@ -111,44 +120,53 @@ with DAG(
         with TaskGroup(group_id=task_model_name) as tg:
             with TaskGroup(group_id=f"training") as tg1:
                 task_check_train, task_train = tasks.create_fine_tuning_tasks(
-                    model, chain, region, model_path_pt,
+                    model, chain, fine_tuning_region, model_path_pt,
                     use_default_model_tokenizer, task_model_name, num_gpus,
                     batch_size, use_accelerate, git_branch)
 
             with TaskGroup(group_id=f"predict") as tg1:
-                (task_check_predict_ft,
-                 task_predict_ft) = tasks.create_label_prediction_tasks(
-                    model, chain, region, model_path_pt,
-                    use_default_model_tokenizer, task_model_name, False,
-                    num_gpus, use_accelerate, git_branch)
+                for predict_region in predict_regions:
+                    (task_check_predict_ft,
+                     task_predict_ft) = tasks.create_label_prediction_tasks(
+                        model, chain, fine_tuning_region, predict_region,
+                        model_path_pt, use_default_model_tokenizer,
+                        task_model_name, False, num_gpus, use_accelerate,
+                        git_branch)
 
-                (task_check_predict_pt,
-                 task_predict_pt) = tasks.create_label_prediction_tasks(
-                    model, chain, region, model_path_pt,
-                    use_default_model_tokenizer, task_model_name, True,
-                    num_gpus, use_accelerate, git_branch)
+                    (task_check_predict_pt,
+                     task_predict_pt) = tasks.create_label_prediction_tasks(
+                        model, chain, fine_tuning_region, predict_region,
+                        model_path_pt, use_default_model_tokenizer,
+                        task_model_name, True, num_gpus, use_accelerate,
+                        git_branch)
 
-                task_train >> task_check_predict_ft
-
-                predict_tasks.extend([task_predict_ft, task_predict_pt])
+                    task_train >> task_check_predict_ft
+                    predict_tasks.extend([task_predict_ft, task_predict_pt])
 
     with TaskGroup(group_id=f"reports") as tg:
-        token_prediction_labels_rmd = tasks.create_rmarkdown_task(
-            "token_prediction_labels_rmd",
-            TOKEN_PREDICTION_LABELS_RMD,
-            OUTPUT_PATH,
-            TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME,
-            chain, region, git_branch)
+        report_tasks = []
 
-        token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
-            "token_prediction_metrics_rmd",
-            TOKEN_PREDICTION_METRICS_RMD,
-            OUTPUT_PATH,
-            TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME,
-            chain, region, git_branch)
+        for predict_region in predict_regions:
+            token_prediction_labels_rmd = tasks.create_rmarkdown_task(
+                f"token_prediction_labels_rmd_{predict_region or 'FULL'}",
+                TOKEN_PREDICTION_LABELS_RMD,
+                OUTPUT_PATH,
+                TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME.format(
+                    predict_region=predict_region or "FULL"),
+                chain, fine_tuning_region, predict_region, git_branch)
 
-        predict_tasks >> token_prediction_labels_rmd
-        predict_tasks >> token_prediction_metrics_rmd
+            token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
+                f"token_prediction_metrics_rmd_{predict_region or 'FULL'}",
+                TOKEN_PREDICTION_METRICS_RMD,
+                OUTPUT_PATH,
+                TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME.format(
+                    predict_region=predict_region or "FULL"),
+                chain, fine_tuning_region, predict_region, git_branch)
+
+            predict_tasks >> token_prediction_labels_rmd
+            predict_tasks >> token_prediction_metrics_rmd
+            report_tasks += [token_prediction_labels_rmd,
+                             token_prediction_metrics_rmd]
 
         data_url = f"{utils.get_base_url()}/data/"
 
@@ -187,5 +205,4 @@ with DAG(
                 "get_dag_run_url": utils.get_dag_run_url}
             )
 
-        [token_prediction_labels_rmd,
-         token_prediction_metrics_rmd] >> send_success_email
+        report_tasks >> send_success_email
