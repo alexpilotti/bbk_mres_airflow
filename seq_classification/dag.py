@@ -134,6 +134,9 @@ with DAG(
     ucl_external_models_path = Variable.get(VAR_UCL_EXTERNAL_MODELS_PATH, "")
 
     for model_config in model_tasks_config:
+        if not model_config.get("enabled", True):
+            continue
+
         model = model_config["model"]
         model_path = model_config.get("path")
         ucl_cluster = model_config.get("ucl_cluster", False)
