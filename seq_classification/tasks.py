@@ -75,6 +75,8 @@ MAX_ATTENTION_SEQUENCES = 200
 
 MIN_SEQ_ID = 0.9
 
+DEFAULT_BATCH_SIZE = 64
+
 COMMON_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
     "{% if params.accelerate %}"
@@ -101,7 +103,7 @@ UNDERSAMPLE_CMD = COMMON_CMD + (
 TRAINING_CMD = COMMON_CMD + (
     "seq-fine-tuning -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
-    "-c {{ params.chain }}"
+    "-c {{ params.chain }} -b {{ params.batch_size}}"
     "{% if params.model_path %} -p {{ params.model_path }}"
     "{% endif %}{% if params.use_default_model_tokenizer %} "
     "--use-default-model-tokenizer"
@@ -404,7 +406,8 @@ def create_shuffle_labels_tasks(chain, use_accelerate=False,
 
 def create_training_tasks(model, chain, model_path=None,
                           use_default_model_tokenizer=None,
-                          task_model_name=None, use_accelerate=False,
+                          task_model_name=None, batch_size=DEFAULT_BATCH_SIZE,
+                          use_accelerate=False,
                           num_gpus=NUM_GPUS, git_branch="main"):
     input_path = TRAINING_INPUT_PATH.format(chain=chain)
     output_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
@@ -430,6 +433,7 @@ def create_training_tasks(model, chain, model_path=None,
                 "chain": chain,
                 "model_path": model_path,
                 "use_default_model_tokenizer": use_default_model_tokenizer,
+                "batch_size": batch_size,
                 "accelerate": use_accelerate,
                 "git_branch": git_branch},
     )
