@@ -147,20 +147,23 @@ with DAG(
         report_tasks = []
 
         for predict_region in predict_regions:
+            if not predict_region:
+                predict_region = "FULL"
+
             token_prediction_labels_rmd = tasks.create_rmarkdown_task(
-                f"token_prediction_labels_rmd_{predict_region or 'FULL'}",
+                f"token_prediction_labels_rmd_{predict_region}",
                 TOKEN_PREDICTION_LABELS_RMD,
                 OUTPUT_PATH,
                 TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME.format(
-                    predict_region=predict_region or "FULL"),
+                    predict_region=predict_region),
                 chain, fine_tuning_region, predict_region, git_branch)
 
             token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
-                f"token_prediction_metrics_rmd_{predict_region or 'FULL'}",
+                f"token_prediction_metrics_rmd_{predict_region}",
                 TOKEN_PREDICTION_METRICS_RMD,
                 OUTPUT_PATH,
                 TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME.format(
-                    predict_region=predict_region or "FULL"),
+                    predict_region=predict_region),
                 chain, fine_tuning_region, predict_region, git_branch)
 
             predict_tasks >> token_prediction_labels_rmd
@@ -185,14 +188,20 @@ with DAG(
                 '<h3>Results</h3>'
                 '<p>'
                 '<ul>'
+                '{% for predict_region in params.predict_regions %}'
                 '  <li>'
                 '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
-                'token_prediction_labels.html">Token prediction labels</a>'
+                '{{ params.token_prediction_labels_output.format('
+                'predict_region=predict_region) }}">'
+                'Token prediction labels {{ predict_region }}</a>'
                 '  </li>'
                 '  <li>'
                 '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
-                'token_prediction_metrics.html">Token prediction metrics</a>'
+                '{{ params.token_prediction_metrics_output.format('
+                'predict_region=predict_region) }}">'
+                'Token prediction metrics {{ predict_region }}</a>'
                 '  </li>'
+                '{% endfor %}'
                 '</ul>'
                 '<br/>'
                 '<a href="{{ params.get_dag_run_url(dag.dag_id, run_id) }}">'
@@ -202,6 +211,11 @@ with DAG(
                 '</p>'),
             params={
                 "data_url": data_url,
+                "predict_regions": [r or "FULL" for r in predict_regions],
+                "token_prediction_labels_output":
+                    TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME,
+                "token_prediction_metrics_output":
+                    TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME,
                 "get_dag_run_url": utils.get_dag_run_url}
             )
 
