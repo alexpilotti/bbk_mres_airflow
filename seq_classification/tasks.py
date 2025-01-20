@@ -36,8 +36,6 @@ PREDICT_INPUT_PATH = (
 PREDICT_OUTPUT_PATH = (f"{common.DATA_PATH}/" +
                        "predict_metrics_{model}_{chain}_{pre_trained}.json")
 
-PRE_TRAINED = "PT"
-FINE_TUNED = "FT"
 ATTENTIONS_INPUT_PATH = PREDICT_INPUT_PATH
 ATTENTIONS_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" +
@@ -175,7 +173,8 @@ def create_attention_comparison_tasks(
         model, chain, model_path=None, use_default_model_tokenizer=None,
         task_model_name=None, pre_trained=True, num_gpus=NUM_GPUS,
         use_accelerate=False, git_branch="main"):
-    pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
+    pre_trained_str = (
+        common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
     input_path = ATTENTIONS_INPUT_PATH.format(chain=chain)
     output_path = ATTENTIONS_OUTPUT_PATH.format(
         model=task_model_name, chain=chain, pre_trained=pre_trained_str)
@@ -452,7 +451,8 @@ def create_predict_tasks(model, chain, model_path=None,
                          task_model_name=None, pre_trained=True,
                          num_gpus=NUM_GPUS, use_accelerate=False,
                          git_branch="main"):
-    pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
+    pre_trained_str = (
+        common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
 
     input_path = PREDICT_INPUT_PATH.format(chain=chain)
     output_path = PREDICT_OUTPUT_PATH.format(
@@ -495,7 +495,8 @@ def create_embeddings_tasks(model, chain, model_path=None,
                             task_model_name=None, pre_trained=True,
                             num_gpus=NUM_GPUS, use_accelerate=False,
                             git_branch="main"):
-    pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
+    pre_trained_str = (
+        common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
 
     input_path = SPLIT_DATA_INPUT_PATH.format(chain=chain)
     embeddings_path = EMBEDDINGS_OUTPUT_PATH.format(
