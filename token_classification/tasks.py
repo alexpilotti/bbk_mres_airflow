@@ -131,6 +131,9 @@ def create_label_prediction_tasks(model, chain, fine_tuning_region,
             model=task_model_name, chain=chain, region=fine_tuning_region_str)
         check_input_paths.append(model_path_check)
 
+        model_path = FINE_TUNING_OUTPUT_PATH.format(
+            model=task_model_name, chain=chain, region=fine_tuning_region_str)
+
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
         task_id=(f"check_update_predict_{task_model_name}_{chain}_"
                  f"{predict_region_str}_{pre_trained_str}"),
@@ -139,10 +142,6 @@ def create_label_prediction_tasks(model, chain, fine_tuning_region,
         timeout=0,
         trigger_rule="none_failed"
     )
-
-    if not pre_trained:
-        model_path = FINE_TUNING_OUTPUT_PATH.format(
-            model=task_model_name, chain=chain, region=predict_region_str)
 
     task_predict = k8s.create_pod_operator(
         task_id=(f"predict_{task_model_name}_{chain}_"
