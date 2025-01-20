@@ -285,10 +285,13 @@ with DAG(
         send_success_email = EmailOperator(
             task_id="send_success_email",
             to="{{ var.value.email_to }}",
-            subject="BBK-MRes tasks completed",
+            subject="BBK-MRes sequence classification tasks completed",
             html_content=(
                 '<p>'
                 'Start time: {{ data_interval_start }}<br/>'
+                '</br>'
+                'Chain: <b>{{ var.value.chain}}</b></br>'
+                'Branch: <b>{{ var.value.bbk_mres_git_branch}}</b></br>'
                 '</p>'
                 '<h3>Results</h3>'
                 '<p>'
