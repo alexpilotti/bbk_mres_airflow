@@ -21,10 +21,6 @@ GIT_DEFAULT_SGE_UTILS_BRANCH = "master"
 
 VAR_UCL_EXTERNAL_MODELS_PATH = "ucl_external_models_path"
 
-CHAIN_H = "H"
-CHAIN_L = "L"
-CHAIN_HL = "HL"
-
 ATTENTIONS_RMD = "attention_comparison.Rmd"
 ATTENTIONS_RMD_OUTPUT_FILENAME = "attention_comparison.html"
 
@@ -70,8 +66,8 @@ with DAG(
     catchup=False,
     tags=["bbk"],
 ) as dag:
-    chain = Variable.get(VAR_CHAIN, CHAIN_H)
-    if chain not in [CHAIN_H, CHAIN_L, CHAIN_HL]:
+    chain = Variable.get(VAR_CHAIN, common.CHAIN_H)
+    if chain not in [common.CHAIN_H, common.CHAIN_L, common.CHAIN_HL]:
         raise Exception(f"Invalid chain: {chain}")
 
     git_branch = Variable.get(
