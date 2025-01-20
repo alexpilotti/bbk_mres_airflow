@@ -2,11 +2,11 @@ from kubernetes import client
 from kubernetes.client import models as k8s
 from airflow.providers.cncf.kubernetes.operators import pod
 
+from bbk_mres_airflow import common
+
 K8S_CONN = "k8s_conn"
 POOL = "k8s_gpu_pool"
 K8S_POD_STARTUP_TIMEOUT_SECONDS = 7200
-
-DATA_PATH = "/data"
 
 
 def create_pod_operator(task_id, image, command, params, num_gpus=0,
@@ -20,7 +20,7 @@ def create_pod_operator(task_id, image, command, params, num_gpus=0,
 
     data_volume_mount = k8s.V1VolumeMount(
         name="data-volume",
-        mount_path=DATA_PATH
+        mount_path=common.DATA_PATH
     )
 
     resources = None

@@ -6,7 +6,7 @@ from airflow.models import Variable
 from airflow.operators.email import EmailOperator
 from airflow.utils.task_group import TaskGroup
 
-from bbk_mres_airflow import k8s
+from bbk_mres_airflow import common
 from bbk_mres_airflow.token_classification import tasks
 from bbk_mres_airflow import utils
 
@@ -22,20 +22,12 @@ MODEL_ESM2_8M = "ESM2-8M"
 
 MODEL_NAME_FT_ESM2 = "ft-ESM2"
 
-VAR_CHAIN = "chain"
-CHAIN_H = "H"
-CHAIN_L = "L"
-CHAIN_HL = "HL"
-
 VAR_REGION = "region"
-VAR_GIT_BRANCH = "bbk_mres_git_branch"
 
-EXTERNAL_MODELS_PATH = f"{k8s.DATA_PATH}/pre_trained_models"
-BALM_MODEL_PATH = f"{
-    EXTERNAL_MODELS_PATH}/BALM-paired_LC-coherence_90-5-5-split_122222/"
-FT_ESM2_MODEL_PATH = f"{EXTERNAL_MODELS_PATH}/ESM2-650M_paired-fine-tuning/"
-
-OUTPUT_PATH = f"{k8s.DATA_PATH}/output"
+BALM_MODEL_PATH = (f"{common.EXTERNAL_MODELS_PATH}/"
+                   "BALM-paired_LC-coherence_90-5-5-split_122222/")
+FT_ESM2_MODEL_PATH = (f"{common.EXTERNAL_MODELS_PATH}/"
+                      "ESM2-650M_paired-fine-tuning/")
 
 TOKEN_PREDICTION_LABELS_RMD = f"token_prediction_labels.Rmd"
 TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME = (
@@ -78,15 +70,17 @@ with DAG(
     catchup=False,
     tags=["bbk"],
 ) as dag:
-    chain = Variable.get(VAR_CHAIN, CHAIN_H)
-    if chain not in [CHAIN_H, CHAIN_L, CHAIN_HL]:
+    chain = Variable.get(common.VAR_CHAIN, common.CHAIN_H)
+    if chain not in [common.CHAIN_H, common.CHAIN_L, common.CHAIN_HL]:
         raise Exception(f"Invalid chain: {chain}")
 
     fine_tuning_region = Variable.get(VAR_REGION, None)
     if fine_tuning_region == "FULL":
         fine_tuning_region = None
 
-    git_branch = Variable.get(VAR_GIT_BRANCH, "main")
+    git_branch = Variable.get(
+        common.VAR_GIT_BBK_MRES_BRANCH,
+        common.GIT_BBK_MRES_DEFAULT_BRANCH)
 
     task_info = [
         (MODEL_ANTIBERTY, None, False, None, 4, 64, False),
@@ -151,7 +145,7 @@ with DAG(
             token_prediction_labels_rmd = tasks.create_rmarkdown_task(
                 f"token_prediction_labels_rmd_{predict_region}",
                 TOKEN_PREDICTION_LABELS_RMD,
-                OUTPUT_PATH,
+                common.OUTPUT_PATH,
                 TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME.format(
                     predict_region=predict_region),
                 chain, fine_tuning_region, predict_region, git_branch)
@@ -159,7 +153,7 @@ with DAG(
             token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
                 f"token_prediction_metrics_rmd_{predict_region}",
                 TOKEN_PREDICTION_METRICS_RMD,
-                OUTPUT_PATH,
+                common.OUTPUT_PATH,
                 TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME.format(
                     predict_region=predict_region),
                 chain, fine_tuning_region, predict_region, git_branch)

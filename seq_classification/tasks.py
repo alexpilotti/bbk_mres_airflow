@@ -16,15 +16,14 @@ CPU_TASKS_POOL = "cpu_pool"
 SINGLE_GPU_POOL = "single_gpu_pool"
 UCL_GPU_POOL = "ucl_gpu_pool"
 
-MODELS_PATH = f"{common.DATA_PATH}/models"
-
 INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
 
 SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet"
 SVM_EMBEDDINGS_SHUFFLED_PREDICTION_INPUT_PATH = (
     f"{common.DATA_PATH}/S_filtered_shuffled" + "_{chain}.parquet")
 TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split" + "_{chain}.parquet"
-TRAINING_OUTPUT_PATH = f"{MODELS_PATH}/" + "seq_prediction_{model}_{chain}/"
+TRAINING_OUTPUT_PATH = (
+    f"{common.MODELS_PATH}/" + "seq_prediction_{model}_{chain}/")
 TRAINING_OUTPUT_PATH_CHECK = TRAINING_OUTPUT_PATH + "config.json"
 
 REMOVE_SIMILAR_SEQUENCES_TEST_INPUT_PATH = (
@@ -612,7 +611,7 @@ def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
                 "output_base_dir": output_base_dir,
                 "output_filename": output_filename,
                 "params": f"chain='{chain}', "
-                          f"data_path='{k8s.DATA_PATH}'",
+                          f"data_path='{common.DATA_PATH}'",
                 "git_branch": git_branch},
         trigger_rule="none_failed"
     )
@@ -713,7 +712,7 @@ def create_ucl_training_tasks(
         command=("unzip -o {{ params.zip_path }} -d {{ params.models_path }} "
                  "&& rm {{ params.zip_path }}"),
         params={"zip_path": zip_path,
-                "models_path": MODELS_PATH})
+                "models_path": common.MODELS_PATH})
 
     task_check >> training_task >> task_get_model_zip
     task_get_model_zip >> task_ucl_delete_model_zip >> task_unzip_model

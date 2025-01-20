@@ -2,11 +2,20 @@ import json
 import os
 
 DATA_PATH = "/data"
+EXTERNAL_MODELS_PATH = f"{DATA_PATH}/pre_trained_models"
+MODELS_PATH = f"{DATA_PATH}/models"
 OUTPUT_PATH = f"{DATA_PATH}/output"
+
+VAR_CHAIN = "chain"
+VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
+GIT_BBK_MRES_DEFAULT_BRANCH = "main"
 
 CHAIN_H = "H"
 CHAIN_L = "L"
 CHAIN_HL = "HL"
+
+PRE_TRAINED = "PT"
+FINE_TUNED = "FT"
 
 CUDA_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-cuda:latest"
 R_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-r:latest"

@@ -1,27 +1,20 @@
+from bbk_mres_airflow import common
 from bbk_mres_airflow import fs_compare_operators
 from bbk_mres_airflow import k8s
 
-PRE_TRAINED = "PT"
-FINE_TUNED = "FT"
-
-MODELS_PATH = f"{k8s.DATA_PATH}/models"
-
-FINE_TUNING_INPUT_PATH = f"{k8s.DATA_PATH}/tokens_data.parquet"
+FINE_TUNING_INPUT_PATH = f"{common.DATA_PATH}/tokens_data.parquet"
 FINE_TUNING_OUTPUT_PATH = (
-    f"{MODELS_PATH}/" + "token_prediction_{model}_{chain}_{region}/")
+    f"{common.MODELS_PATH}/" + "token_prediction_{model}_{chain}_{region}/")
 FINE_TUNING_OUTPUT_PATH_CHECK = FINE_TUNING_OUTPUT_PATH + "config.json"
 
 PREDICT_METRICS_PATH = (
-    f"{k8s.DATA_PATH}/" +
+    f"{common.DATA_PATH}/" +
     "token_predict_metrics_{model}_{chain}_{fine_tuning_region}_" +
     "{predict_region}_{pre_trained}.json")
 PREDICT_LABELS_PATH = (
-    f"{k8s.DATA_PATH}/" +
+    f"{common.DATA_PATH}/" +
     "token_prediction_{model}_{chain}_{fine_tuning_region}_" +
     "{predict_region}_{pre_trained}.parquet")
-
-CUDA_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-cuda:latest"
-R_CONTAINER_IMAGE = "registry.bbk-mres:5000/bbk-mres-r:latest"
 
 FINE_TUNING_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
@@ -87,7 +80,7 @@ def create_fine_tuning_tasks(model, chain, region, model_path=None,
 
     task_train = k8s.create_pod_operator(
         task_id=f"fine_tuning_{task_model_name}_{chain}_{region_str}",
-        image=CUDA_CONTAINER_IMAGE,
+        image=common.CUDA_CONTAINER_IMAGE,
         num_gpus=num_gpus,
         command=FINE_TUNING_CMD,
         params={"model": model,
@@ -115,7 +108,8 @@ def create_label_prediction_tasks(model, chain, fine_tuning_region,
                                   git_branch="main"):
     fine_tuning_region_str = fine_tuning_region or "FULL"
     predict_region_str = predict_region or "FULL"
-    pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
+    pre_trained_str = (
+        common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
 
     input_path = FINE_TUNING_INPUT_PATH
     output_metrics_path = PREDICT_METRICS_PATH.format(
@@ -146,7 +140,7 @@ def create_label_prediction_tasks(model, chain, fine_tuning_region,
     task_predict = k8s.create_pod_operator(
         task_id=(f"predict_{task_model_name}_{chain}_"
                  f"{predict_region_str}_{pre_trained_str}"),
-        image=CUDA_CONTAINER_IMAGE,
+        image=common.CUDA_CONTAINER_IMAGE,
         num_gpus=num_gpus,
         command=PREDICT_CMD,
         params={"model": model,
@@ -171,7 +165,7 @@ def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
                           predict_region, git_branch="main"):
     return k8s.create_pod_operator(
         task_id=task_id,
-        image=R_CONTAINER_IMAGE,
+        image=common.R_CONTAINER_IMAGE,
         command=RMARKDOWN_CMD,
         params={"rmd_path": rmd_path,
                 "output_base_dir": output_base_dir,
@@ -179,7 +173,7 @@ def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
                 "params": f"chain='{chain}', fine_tuning_region="
                           f"'{fine_tuning_region or "FULL"}', "
                           f"predict_region='{predict_region or "FULL"}', "
-                          f"data_path='{k8s.DATA_PATH}'",
+                          f"data_path='{common.DATA_PATH}'",
                 "git_branch": git_branch},
         trigger_rule="none_failed"
     )

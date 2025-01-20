@@ -14,9 +14,6 @@ from bbk_mres_airflow.seq_classification import tasks
 from bbk_mres_airflow import ssh_jump_hook
 from bbk_mres_airflow import utils
 
-VAR_CHAIN = "chain"
-VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
-GIT_BBK_MRES_DEFAULT_BRANCH = "main"
 GIT_DEFAULT_SGE_UTILS_BRANCH = "master"
 
 VAR_UCL_EXTERNAL_MODELS_PATH = "ucl_external_models_path"
@@ -29,8 +26,6 @@ CV_AUROC_RMD_OUTPUT_FILENAME = "cv_auroc.html"
 
 CV_METRICS_RMD = "metrics.Rmd"
 CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
-
-EXTERNAL_MODELS_PATH = f"{common.DATA_PATH}/pre_trained_models"
 
 DEFAULT_GPUS = 2
 
@@ -66,12 +61,13 @@ with DAG(
     catchup=False,
     tags=["bbk"],
 ) as dag:
-    chain = Variable.get(VAR_CHAIN, common.CHAIN_H)
+    chain = Variable.get(common.VAR_CHAIN, common.CHAIN_H)
     if chain not in [common.CHAIN_H, common.CHAIN_L, common.CHAIN_HL]:
         raise Exception(f"Invalid chain: {chain}")
 
     git_branch = Variable.get(
-        VAR_GIT_BBK_MRES_BRANCH, default_var=GIT_BBK_MRES_DEFAULT_BRANCH)
+        common.VAR_GIT_BBK_MRES_BRANCH,
+        default_var=common.GIT_BBK_MRES_DEFAULT_BRANCH)
 
     ucl_ssh_hook = ssh_jump_hook.SSHJumpHook(
         ssh_conn_id="ucl_ssh_conn", cmd_timeout=None)
@@ -145,7 +141,8 @@ with DAG(
         ucl_model_path = None
 
         if model_path:
-            model_path_pt = os.path.join(EXTERNAL_MODELS_PATH, model_path)
+            model_path_pt = os.path.join(
+                common.EXTERNAL_MODELS_PATH, model_path)
             ucl_model_path = os.path.join(ucl_external_models_path, model_path)
 
         task_model_name = model_config.get("task_model_name", model)
