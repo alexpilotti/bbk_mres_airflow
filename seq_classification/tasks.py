@@ -71,6 +71,8 @@ MIN_SEQ_ID = 0.9
 
 DEFAULT_BATCH_SIZE = 64
 
+DEFAULT_GPUS = 2
+
 COMMON_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
     "{% if params.accelerate %}"
@@ -163,12 +165,10 @@ UCL_TRAINING_CMD = (
     "{{ chain }} {{ input }} {{ output }} {{ model_path or '' }} "
     "{{ use_default_model_tokenizer or '' }}")
 
-NUM_GPUS = 1
-
 
 def create_attention_comparison_tasks(
         model, chain, model_path=None, use_default_model_tokenizer=None,
-        task_model_name=None, pre_trained=True, num_gpus=NUM_GPUS,
+        task_model_name=None, pre_trained=True, num_gpus=DEFAULT_GPUS,
         use_accelerate=False, git_branch="main"):
     pre_trained_str = (
         common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
@@ -408,7 +408,7 @@ def create_training_tasks(model, chain, model_path=None,
                           use_default_model_tokenizer=None,
                           task_model_name=None, batch_size=DEFAULT_BATCH_SIZE,
                           use_accelerate=False,
-                          num_gpus=NUM_GPUS, git_branch="main"):
+                          num_gpus=DEFAULT_GPUS, git_branch="main"):
     input_path = TRAINING_INPUT_PATH.format(chain=chain)
     output_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
         model=task_model_name, chain=chain)
@@ -446,7 +446,7 @@ def create_training_tasks(model, chain, model_path=None,
 def create_predict_tasks(model, chain, model_path=None,
                          use_default_model_tokenizer=None,
                          task_model_name=None, pre_trained=True,
-                         num_gpus=NUM_GPUS, use_accelerate=False,
+                         num_gpus=DEFAULT_GPUS, use_accelerate=False,
                          git_branch="main"):
     pre_trained_str = (
         common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
@@ -490,7 +490,7 @@ def create_predict_tasks(model, chain, model_path=None,
 def create_embeddings_tasks(model, chain, model_path=None,
                             use_default_model_tokenizer=None,
                             task_model_name=None, pre_trained=True,
-                            num_gpus=NUM_GPUS, use_accelerate=False,
+                            num_gpus=DEFAULT_GPUS, use_accelerate=False,
                             git_branch="main"):
     pre_trained_str = (
         common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
@@ -616,7 +616,7 @@ def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
 
 
 def _create_grid_engine_task(
-        ssh_hook, task_id, cmd, mem_gb=4, num_gpus=2, gpu_type=None,
+        ssh_hook, task_id, cmd, mem_gb=4, num_gpus=DEFAULT_GPUS, gpu_type=None,
         scratch_gb=50, trigger_rule="all_success", retries=5,
         pool="default_pool"):
 

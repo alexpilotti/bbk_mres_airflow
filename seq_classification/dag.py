@@ -27,8 +27,6 @@ CV_AUROC_RMD_OUTPUT_FILENAME = "cv_auroc.html"
 CV_METRICS_RMD = "metrics.Rmd"
 CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
 
-DEFAULT_GPUS = 2
-
 
 with DAG(
     "BBK-MRes-sequence-classification",
@@ -135,7 +133,7 @@ with DAG(
             "use_default_model_tokenizer")
         use_accelerate = model_config.get("accelerate", False)
         num_gpus = model_config.get(
-            "gpus", DEFAULT_GPUS)
+            "gpus", tasks.DEFAULT_GPUS)
         batch_size = model_config.get("batch_size", tasks.DEFAULT_BATCH_SIZE)
         model_path_pt = None
         ucl_model_path = None
