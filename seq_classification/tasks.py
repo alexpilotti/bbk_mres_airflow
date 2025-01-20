@@ -10,7 +10,6 @@ from airflow.providers.ssh.operators.ssh import SSHOperator
 
 from bbk_mres_airflow import common
 from bbk_mres_airflow import k8s
-from bbk_mres_airflow import sftp_compare_operators
 from bbk_mres_airflow import fs_compare_operators
 
 CPU_TASKS_POOL = "cpu_pool"

@@ -4,8 +4,6 @@ from airflow.models.dag import DAG
 
 from airflow.models import Variable
 from airflow.operators.email import EmailOperator
-from airflow.providers.sftp.hooks.sftp import SFTPHook
-from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.utils.task_group import TaskGroup
 
 from bbk_mres_airflow import k8s
