@@ -1,0 +1,102 @@
+{
+    "seq_classification" : {
+        "models": [
+            {
+                "model": "AntiBERTy",
+                "enabled": true
+            },
+            {
+                "model": "AntiBERTa2"
+            },
+            {
+                "model": "ESM2-8M",
+                "ucl_cluster": false
+            },
+            {
+                "model": "ESM2-35M"
+            },
+            {
+                "model": "ESM2-150M"
+            },
+            {
+                "model": "ESM2-650M",
+                "gpus": 8
+            },
+            {
+                "model": "ESM2-3B",
+                "gpus": 10,
+                "accelerate": true
+            },
+            {
+                "model": "ESM2-15B",
+                "gpus": 20,
+                "accelerate": true,
+                "batch_size": 24
+            },
+            {
+                "model": "BALM-paired",
+                "path": "BALM-paired_LC-coherence_90-5-5-split_122222",
+                "gpus": 8
+            },
+            {
+                "model": "ft-ESM2",
+                "path": "ESM2-650M_paired-fine-tuning",
+                "use_default_model_tokenizer": true,
+                "task_model_name": "ft-ESM2",
+                "gpus": 8
+            }
+        ]
+    },
+    "token_classification" : {
+        "models": [
+            {
+                "model": "AntiBERTy",
+                "gpus": 4,
+                "enabled": true
+            },
+            {
+                "model": "AntiBERTa2",
+                "gpus": 4
+            },
+            {
+                "model": "ESM2-8M",
+                "gpus": 4
+            },
+            {
+                "model": "ESM2-35M",
+                "gpus": 4
+            },
+            {
+                "model": "ESM2-150M",
+                "gpus": 4
+            },
+            {
+                "model": "ESM2-650M",
+                "gpus": 8
+            },
+            {
+                "model": "ESM2-3B",
+                "gpus": 10,
+                "accelerate": true
+            },
+            {
+                "model": "ESM2-15B",
+                "gpus": 20,
+                "accelerate": true,
+                "batch_size": 24
+            },
+            {
+                "model": "BALM-paired",
+                "path": "BALM-paired_LC-coherence_90-5-5-split_122222",
+                "gpus": 8
+            },
+            {
+                "model": "ft-ESM2",
+                "path": "ESM2-650M_paired-fine-tuning",
+                "use_default_model_tokenizer": true,
+                "task_model_name": "ft-ESM2",
+                "gpus": 8
+            }
+        ]
+    }
+}
