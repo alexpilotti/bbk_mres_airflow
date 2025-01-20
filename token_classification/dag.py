@@ -23,7 +23,6 @@ TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME = (
 
 REGIONS = ["CDR1", "CDR2", "CDR3"]
 
-DEFAULT_GPUS = 4
 
 with DAG(
     "BBK-MRes-token-classification",
@@ -87,7 +86,7 @@ with DAG(
         use_default_model_tokenizer = model_config.get(
             "use_default_model_tokenizer")
         use_accelerate = model_config.get("accelerate", False)
-        num_gpus = model_config.get("gpus", DEFAULT_GPUS)
+        num_gpus = model_config.get("gpus", tasks.DEFAULT_GPUS)
         batch_size = model_config.get("batch_size", tasks.DEFAULT_BATCH_SIZE)
         model_path_pt = None
 

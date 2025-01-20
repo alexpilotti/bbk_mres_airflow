@@ -58,11 +58,12 @@ RMARKDOWN_CMD = (
     "params = list({{ params.params }}))\"")
 
 DEFAULT_BATCH_SIZE = 64
+DEFAULT_GPUS = 4
 
 
 def create_fine_tuning_tasks(model, chain, region, model_path=None,
                              use_default_model_tokenizer=None,
-                             task_model_name=None, num_gpus=2,
+                             task_model_name=None, num_gpus=DEFAULT_GPUS,
                              batch_size=DEFAULT_BATCH_SIZE,
                              use_accelerate=False, git_branch="main"):
     region_str = region or "FULL"
@@ -107,7 +108,7 @@ def create_label_prediction_tasks(model, chain, fine_tuning_region,
                                   predict_region, model_path=None,
                                   use_default_model_tokenizer=None,
                                   task_model_name=None, pre_trained=True,
-                                  num_gpus=2, use_accelerate=False,
+                                  num_gpus=DEFAULT_GPUS, use_accelerate=False,
                                   git_branch="main"):
     fine_tuning_region_str = fine_tuning_region or "FULL"
     predict_region_str = predict_region or "FULL"
