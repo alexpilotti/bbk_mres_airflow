@@ -37,7 +37,7 @@ CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
 
 EXTERNAL_MODELS_PATH = f"{common.DATA_PATH}/pre_trained_models"
 
-DEFAULT_TRAINING_GPUS = 2
+DEFAULT_GPUS = 2
 
 
 with DAG(
@@ -143,8 +143,8 @@ with DAG(
         use_default_model_tokenizer = model_config.get(
             "use_default_model_tokenizer")
         use_accelerate = model_config.get("accelerate", False)
-        training_gpus = model_config.get(
-            "training_gpus", DEFAULT_TRAINING_GPUS)
+        num_gpus = model_config.get(
+            "gpus", DEFAULT_GPUS)
         batch_size = model_config.get("batch_size", tasks.DEFAULT_BATCH_SIZE)
         model_path_pt = None
         ucl_model_path = None
@@ -162,7 +162,7 @@ with DAG(
                      training) = tasks.create_training_tasks(
                         model, chain, model_path_pt,
                         use_default_model_tokenizer, task_model_name,
-                        batch_size, use_accelerate, training_gpus, git_branch)
+                        batch_size, use_accelerate, num_gpus, git_branch)
 
                     task_split_data >> check_update_model
                     last_training_task = training
@@ -187,13 +187,13 @@ with DAG(
                  predict_metrics_pt) = tasks.create_predict_tasks(
                     model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name,
-                    git_branch=git_branch)
+                    num_gpus=num_gpus, git_branch=git_branch)
 
                 (check_update_predict_metrics_ft,
                  predict_metrics_ft) = tasks.create_predict_tasks(
                     model, chain, None,
                     use_default_model_tokenizer, task_model_name,
-                    pre_trained=False,
+                    pre_trained=False, num_gpus=num_gpus,
                     git_branch=git_branch)
 
             with TaskGroup(group_id=f"attentions") as tg1:
@@ -201,13 +201,13 @@ with DAG(
                  attentions_pt) = tasks.create_attention_comparison_tasks(
                     model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name,
-                    git_branch=git_branch)
+                    num_gpus=num_gpus, git_branch=git_branch)
 
                 (check_updated_attentions_ft,
                  attentions_ft) = tasks.create_attention_comparison_tasks(
                     model, chain, None,
                     use_default_model_tokenizer, task_model_name,
-                    pre_trained=False,
+                    pre_trained=False, num_gpus=num_gpus,
                     git_branch=git_branch)
 
             with TaskGroup(group_id=f"embeddings") as tg1:
@@ -217,7 +217,7 @@ with DAG(
                  svm_emb_pred_pt_shuffled) = tasks.create_embeddings_tasks(
                     model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name,
-                    git_branch=git_branch)
+                    num_gpus=num_gpus, git_branch=git_branch)
 
                 (check_updated_embeddings_ft,
                  get_embeddings_ft, check_svm_emb_pred_ft,
@@ -225,7 +225,7 @@ with DAG(
                  svm_emb_pred_ft_shuffled) = tasks.create_embeddings_tasks(
                     model, chain, None,
                     use_default_model_tokenizer, task_model_name,
-                    pre_trained=False,
+                    pre_trained=False, num_gpus=num_gpus,
                     git_branch=git_branch)
 
             task_shuffle_labels >> [

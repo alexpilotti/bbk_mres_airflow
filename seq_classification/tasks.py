@@ -173,9 +173,8 @@ NUM_GPUS = 1
 
 
 def create_attention_comparison_tasks(
-        model, chain, model_path=None,
-        use_default_model_tokenizer=None,
-        task_model_name=None, pre_trained=True,
+        model, chain, model_path=None, use_default_model_tokenizer=None,
+        task_model_name=None, pre_trained=True, num_gpus=NUM_GPUS,
         use_accelerate=False, git_branch="main"):
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
     input_path = ATTENTIONS_INPUT_PATH.format(chain=chain)
@@ -204,7 +203,7 @@ def create_attention_comparison_tasks(
         task_id=("attention_comparison_"
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=num_gpus,
         command=ATTENTIONS_CMD,
         params={"model": model,
                 "input": input_path,
@@ -238,10 +237,11 @@ def create_remove_similar_sequences_tasks(chain, use_accelerate=False,
         trigger_rule="none_failed"
     )
 
+    # This task doesn't use CUDA
     task_remove_similar_sequences_train = k8s.create_pod_operator(
         task_id=f"remove_similar_sequences_train",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=0,
         command=REMOVE_SIMILAR_SEQUENCES_CMD,
         params={"input": train_input_path,
                 "output": train_output_path,
@@ -261,10 +261,11 @@ def create_remove_similar_sequences_tasks(chain, use_accelerate=False,
         trigger_rule="none_failed"
     )
 
+    # This task doesn't use CUDA
     task_remove_similar_sequences_test = k8s.create_pod_operator(
         task_id=f"remove_similar_sequences_test",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=0,
         command=REMOVE_SIMILAR_SEQUENCES_CMD,
         params={"input": test_input_path,
                 "target": test_target_path,
@@ -295,10 +296,11 @@ def create_undersample_training_tasks(chain, use_accelerate=False,
         trigger_rule="none_failed"
     )
 
+    # This task doesn't use CUDA
     task_undersample_train = k8s.create_pod_operator(
         task_id=f"undersample_training",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=0,
         command=UNDERSAMPLE_CMD,
         params={"input": undersample_train_input,
                 "output": undersample_train_output,
@@ -326,10 +328,11 @@ def create_undersample_test_tasks(chain, use_accelerate=False,
         trigger_rule="none_failed"
     )
 
+    # This task doesn't use CUDA
     task_undersample_test = k8s.create_pod_operator(
         task_id=f"undersample_test",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=0,
         command=UNDERSAMPLE_CMD,
         params={"input": undersample_test_input,
                 "output": undersample_test_output,
@@ -356,10 +359,11 @@ def create_split_data_tasks(chain, use_accelerate=False, git_branch="main"):
         trigger_rule="none_failed"
     )
 
+    # This task doesn't use CUDA
     task_split_data = k8s.create_pod_operator(
         task_id=f"split_data",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=0,
         command=SPLIT_DATA_CMD,
         params={"input": input_path,
                 "output": output_path,
@@ -388,10 +392,11 @@ def create_shuffle_labels_tasks(chain, use_accelerate=False,
         trigger_rule="none_failed"
     )
 
+    # This task doesn't use CUDA
     task_shuffle_labels = k8s.create_pod_operator(
         task_id=f"shuffle_labels",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=0,
         command=SHUFFLE_CMD,
         params={"input": input_path,
                 "output": output_path,
@@ -446,7 +451,8 @@ def create_training_tasks(model, chain, model_path=None,
 def create_predict_tasks(model, chain, model_path=None,
                          use_default_model_tokenizer=None,
                          task_model_name=None, pre_trained=True,
-                         use_accelerate=False, git_branch="main"):
+                         num_gpus=NUM_GPUS, use_accelerate=False,
+                         git_branch="main"):
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
 
     input_path = PREDICT_INPUT_PATH.format(chain=chain)
@@ -468,7 +474,7 @@ def create_predict_tasks(model, chain, model_path=None,
     task_predict = k8s.create_pod_operator(
         task_id=f"predict_{task_model_name}_{chain}_{pre_trained_str}",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=num_gpus,
         command=PREDICT_CMD,
         params={"model": model,
                 "input": input_path,
@@ -488,7 +494,8 @@ def create_predict_tasks(model, chain, model_path=None,
 def create_embeddings_tasks(model, chain, model_path=None,
                             use_default_model_tokenizer=None,
                             task_model_name=None, pre_trained=True,
-                            use_accelerate=False, git_branch="main"):
+                            num_gpus=NUM_GPUS, use_accelerate=False,
+                            git_branch="main"):
     pre_trained_str = (PRE_TRAINED if pre_trained else FINE_TUNED)
 
     input_path = SPLIT_DATA_INPUT_PATH.format(chain=chain)
@@ -515,7 +522,7 @@ def create_embeddings_tasks(model, chain, model_path=None,
     task_embeddings = k8s.create_pod_operator(
         task_id=f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}",
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=num_gpus,
         command=EMBEDDINGS_CMD,
         params={"model": model,
                 "input": input_path,
@@ -538,11 +545,12 @@ def create_embeddings_tasks(model, chain, model_path=None,
         trigger_rule="none_failed"
     )
 
+    # This task doesn't use CUDA
     task_compute_svm_embeddings_prediction = k8s.create_pod_operator(
         task_id=("compute_svm_embeddings_prediction_" +
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=0,
         command=SVM_EMBEDDINGS_PREDICTION_CMD,
         params={"input": input_path,
                 "output": svm_output_path,
@@ -569,11 +577,12 @@ def create_embeddings_tasks(model, chain, model_path=None,
             trigger_rule="none_failed"
         ))
 
+    # This task doesn't use CUDA
     task_compute_svm_embeddings_prediction_shuffled = k8s.create_pod_operator(
         task_id=("compute_svm_embeddings_prediction_" +
                  f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
         image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=NUM_GPUS,
+        num_gpus=0,
         command=SVM_EMBEDDINGS_PREDICTION_CMD,
         params={"input": svm_input_path_shuffled,
                 "output": svm_output_path_shuffled,
