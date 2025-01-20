@@ -11,24 +11,7 @@ from bbk_mres_airflow import common
 from bbk_mres_airflow.token_classification import tasks
 from bbk_mres_airflow import utils
 
-MODEL_BALM_PAIRED = "BALM-paired"
-MODEL_ANTIBERTY = "AntiBERTy"
-MODEL_ANTIBERTA2 = "AntiBERTa2"
-MODEL_ESM2_650M = "ESM2-650M"
-MODEL_ESM2_150M = "ESM2-150M"
-MODEL_ESM2_15B = "ESM2-15B"
-MODEL_ESM2_35M = "ESM2-35M"
-MODEL_ESM2_3B = "ESM2-3B"
-MODEL_ESM2_8M = "ESM2-8M"
-
-MODEL_NAME_FT_ESM2 = "ft-ESM2"
-
 VAR_REGION = "region"
-
-BALM_MODEL_PATH = (f"{common.EXTERNAL_MODELS_PATH}/"
-                   "BALM-paired_LC-coherence_90-5-5-split_122222/")
-FT_ESM2_MODEL_PATH = (f"{common.EXTERNAL_MODELS_PATH}/"
-                      "ESM2-650M_paired-fine-tuning/")
 
 TOKEN_PREDICTION_LABELS_RMD = f"token_prediction_labels.Rmd"
 TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME = (

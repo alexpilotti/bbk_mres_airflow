@@ -12,8 +12,6 @@ from bbk_mres_airflow import common
 from bbk_mres_airflow import k8s
 from bbk_mres_airflow import fs_compare_operators
 
-CPU_TASKS_POOL = "cpu_pool"
-SINGLE_GPU_POOL = "single_gpu_pool"
 UCL_GPU_POOL = "ucl_gpu_pool"
 
 INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
