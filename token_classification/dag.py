@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 
 from airflow.models.dag import DAG
 
@@ -38,6 +39,8 @@ TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME = (
     "token_prediction_metrics_{predict_region}.html")
 
 REGIONS = ["CDR1", "CDR2", "CDR3"]
+
+DEFAULT_GPUS = 4
 
 with DAG(
     "BBK-MRes-token-classification",
@@ -82,19 +85,7 @@ with DAG(
         common.VAR_GIT_BBK_MRES_BRANCH,
         common.GIT_BBK_MRES_DEFAULT_BRANCH)
 
-    task_info = [
-        (MODEL_ANTIBERTY, None, False, None, 4, 64, False),
-        (MODEL_ANTIBERTA2, None, False, None, 4, 64, False),
-        (MODEL_BALM_PAIRED, BALM_MODEL_PATH, False, None, 4, 64, False),
-        (MODEL_ESM2_8M, None, False, None, 4, 64, False),
-        (MODEL_ESM2_35M, None, False, None, 4, 64, False),
-        (MODEL_ESM2_150M, None, False, None, 4, 64, False),
-        (MODEL_ESM2_650M, None, False, None, 8, 64, False),
-        (MODEL_ESM2_650M, FT_ESM2_MODEL_PATH, True, MODEL_NAME_FT_ESM2, 8, 64,
-            False),
-        (MODEL_ESM2_3B, None, False, None, 10, 64, True),
-        (MODEL_ESM2_15B, None, False, None, 20, 24, True)
-    ]
+    model_tasks_config = common.load_config()["token_classification"]["models"]
 
     predict_tasks = []
 
@@ -104,10 +95,24 @@ with DAG(
         # full chain and all CDR regions
         predict_regions += REGIONS
 
-    for (model, model_path_pt, use_default_model_tokenizer,
-         task_model_name, num_gpus, batch_size, use_accelerate) in task_info:
-        if not task_model_name:
-            task_model_name = model
+    for model_config in model_tasks_config:
+        if not model_config.get("enabled", True):
+            continue
+
+        model = model_config["model"]
+        model_path = model_config.get("path")
+        use_default_model_tokenizer = model_config.get(
+            "use_default_model_tokenizer")
+        use_accelerate = model_config.get("accelerate", False)
+        num_gpus = model_config.get("gpus", DEFAULT_GPUS)
+        batch_size = model_config.get("batch_size", tasks.DEFAULT_BATCH_SIZE)
+        model_path_pt = None
+
+        if model_path:
+            model_path_pt = os.path.join(
+                common.EXTERNAL_MODELS_PATH, model_path)
+
+        task_model_name = model_config.get("task_model_name", model)
 
         with TaskGroup(group_id=task_model_name) as tg:
             with TaskGroup(group_id=f"training") as tg1:

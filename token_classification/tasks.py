@@ -57,10 +57,13 @@ RMARKDOWN_CMD = (
     "{{ params.output_filename }}', "
     "params = list({{ params.params }}))\"")
 
+DEFAULT_BATCH_SIZE = 64
+
 
 def create_fine_tuning_tasks(model, chain, region, model_path=None,
                              use_default_model_tokenizer=None,
-                             task_model_name=None, num_gpus=2, batch_size=64,
+                             task_model_name=None, num_gpus=2,
+                             batch_size=DEFAULT_BATCH_SIZE,
                              use_accelerate=False, git_branch="main"):
     region_str = region or "FULL"
 
