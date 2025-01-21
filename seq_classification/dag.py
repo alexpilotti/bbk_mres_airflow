@@ -73,6 +73,11 @@ with DAG(
 
     model_tasks_config = common.load_config()["seq_classification"]["models"]
 
+    enabled_models = Variable.get(common.VAR_ENABLED_MODELS, "").split(",")
+    if enabled_models:
+        model_tasks_config = [m for m in model_tasks_config
+                              if m["model"] in enabled_models]
+
     with TaskGroup(group_id="git") as tg:
         ucl_bbk_mres_git_reset_task = git_tasks.create_git_reset_task(
             "ucl_bbk_mres_git_reset", ucl_ssh_hook, git_branch,

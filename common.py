@@ -10,6 +10,8 @@ VAR_CHAIN = "chain"
 VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
 GIT_BBK_MRES_DEFAULT_BRANCH = "main"
 
+VAR_ENABLED_MODELS = "enabled_models"
+
 CHAIN_H = "H"
 CHAIN_L = "L"
 CHAIN_HL = "HL"

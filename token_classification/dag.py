@@ -69,6 +69,11 @@ with DAG(
 
     model_tasks_config = common.load_config()["token_classification"]["models"]
 
+    enabled_models = Variable.get(common.VAR_ENABLED_MODELS, "").split(",")
+    if enabled_models:
+        model_tasks_config = [m for m in model_tasks_config
+                              if m["model"] in enabled_models]
+
     predict_tasks = []
 
     predict_regions = [fine_tuning_region]
