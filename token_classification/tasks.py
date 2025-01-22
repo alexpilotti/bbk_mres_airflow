@@ -166,7 +166,7 @@ def create_label_prediction_tasks(model, chain, fine_tuning_region,
 
 def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
                           output_filename, chain, fine_tuning_region,
-                          predict_region, git_branch="main"):
+                          predict_region, models, git_branch="main"):
     return k8s.create_pod_operator(
         task_id=task_id,
         image=common.R_CONTAINER_IMAGE,
@@ -177,7 +177,8 @@ def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
                 "params": f"chain='{chain}', fine_tuning_region="
                           f"'{fine_tuning_region or "FULL"}', "
                           f"predict_region='{predict_region or "FULL"}', "
-                          f"data_path='{common.DATA_PATH}'",
+                          f"data_path='{common.DATA_PATH}', "
+                          f"models='{','.join(models)}'",
                 "git_branch": git_branch},
         trigger_rule="none_failed"
     )

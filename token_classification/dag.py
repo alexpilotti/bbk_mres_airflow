@@ -68,11 +68,15 @@ with DAG(
         common.GIT_BBK_MRES_DEFAULT_BRANCH)
 
     model_tasks_config = common.load_config()["token_classification"]["models"]
+    model_tasks_config = [m for m in model_tasks_config
+                          if m.get("enabled", True)]
+    for m in model_tasks_config:
+        m["task_model_name"] = m.get("task_model_name", m["model"])
 
     enabled_models = Variable.get(common.VAR_ENABLED_MODELS, "").split(",")
     if enabled_models:
         model_tasks_config = [m for m in model_tasks_config
-                              if m["model"] in enabled_models]
+                              if m["task_model_name"] in enabled_models]
 
     predict_tasks = []
 
@@ -83,9 +87,6 @@ with DAG(
         predict_regions += REGIONS
 
     for model_config in model_tasks_config:
-        if not model_config.get("enabled", True):
-            continue
-
         model = model_config["model"]
         model_path = model_config.get("path")
         use_default_model_tokenizer = model_config.get(
@@ -99,7 +100,7 @@ with DAG(
             model_path_pt = os.path.join(
                 common.EXTERNAL_MODELS_PATH, model_path)
 
-        task_model_name = model_config.get("task_model_name", model)
+        task_model_name = model_config["task_model_name"]
 
         with TaskGroup(group_id=task_model_name) as tg:
             with TaskGroup(group_id=f"training") as tg1:
@@ -129,6 +130,7 @@ with DAG(
 
     with TaskGroup(group_id=f"reports") as tg:
         report_tasks = []
+        models = [m["task_model_name"] for m in model_tasks_config]
 
         for predict_region in predict_regions:
             if not predict_region:
@@ -140,7 +142,8 @@ with DAG(
                 common.OUTPUT_PATH,
                 TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME.format(
                     predict_region=predict_region),
-                chain, fine_tuning_region, predict_region, git_branch)
+                chain, fine_tuning_region, predict_region, models,
+                git_branch)
 
             token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
                 f"token_prediction_metrics_rmd_{predict_region}",
@@ -148,7 +151,8 @@ with DAG(
                 common.OUTPUT_PATH,
                 TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME.format(
                     predict_region=predict_region),
-                chain, fine_tuning_region, predict_region, git_branch)
+                chain, fine_tuning_region, predict_region, models,
+                git_branch)
 
             predict_tasks >> token_prediction_labels_rmd
             predict_tasks >> token_prediction_metrics_rmd
@@ -168,6 +172,8 @@ with DAG(
                 'Chain: <b>{{ var.value.chain}}</b></br>'
                 'Region: <b>{{ var.value.region}}</b></br>'
                 'Branch: <b>{{ var.value.bbk_mres_git_branch}}</b></br>'
+                '</br>'
+                'Models: <b>{{ params.models }}</b></br>'
                 '</p>'
                 '<h3>Results</h3>'
                 '<p>'
@@ -200,6 +206,7 @@ with DAG(
                     TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME,
                 "token_prediction_metrics_output":
                     TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME,
+                "models": ",".join(models),
                 "get_dag_run_url": utils.get_dag_run_url}
             )
 

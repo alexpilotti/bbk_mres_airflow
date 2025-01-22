@@ -600,7 +600,7 @@ def create_embeddings_tasks(model, chain, model_path=None,
 
 
 def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
-                          output_filename, chain, git_branch="main"):
+                          output_filename, chain, models, git_branch="main"):
     return k8s.create_pod_operator(
         task_id=task_id,
         image=common.R_CONTAINER_IMAGE,
@@ -609,7 +609,8 @@ def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
                 "output_base_dir": output_base_dir,
                 "output_filename": output_filename,
                 "params": f"chain='{chain}', "
-                          f"data_path='{common.DATA_PATH}'",
+                          f"data_path='{common.DATA_PATH}', "
+                          f"models='{','.join(models)}'",
                 "git_branch": git_branch},
         trigger_rule="none_failed"
     )

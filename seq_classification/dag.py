@@ -72,11 +72,15 @@ with DAG(
     ucl_sftp_hook = SFTPHook(ssh_hook=ucl_ssh_hook)
 
     model_tasks_config = common.load_config()["seq_classification"]["models"]
+    model_tasks_config = [m for m in model_tasks_config
+                          if m.get("enabled", True)]
+    for m in model_tasks_config:
+        m["task_model_name"] = m.get("task_model_name", m["model"])
 
     enabled_models = Variable.get(common.VAR_ENABLED_MODELS, "").split(",")
     if enabled_models:
         model_tasks_config = [m for m in model_tasks_config
-                              if m["model"] in enabled_models]
+                              if m["task_model_name"] in enabled_models]
 
     with TaskGroup(group_id="git") as tg:
         ucl_bbk_mres_git_reset_task = git_tasks.create_git_reset_task(
@@ -128,9 +132,6 @@ with DAG(
     ucl_external_models_path = Variable.get(VAR_UCL_EXTERNAL_MODELS_PATH, "")
 
     for model_config in model_tasks_config:
-        if not model_config.get("enabled", True):
-            continue
-
         model = model_config["model"]
         model_path = model_config.get("path")
         ucl_cluster = model_config.get("ucl_cluster", False)
@@ -148,7 +149,7 @@ with DAG(
                 common.EXTERNAL_MODELS_PATH, model_path)
             ucl_model_path = os.path.join(ucl_external_models_path, model_path)
 
-        task_model_name = model_config.get("task_model_name", model)
+        task_model_name = model_config["task_model_name"]
 
         with TaskGroup(group_id=task_model_name) as tg:
             if not ucl_cluster:
@@ -248,12 +249,14 @@ with DAG(
                  svm_emb_pred_ft, svm_emb_pred_ft_shuffled])
 
     with TaskGroup(group_id=f"reports") as tg:
+        models = [m["task_model_name"] for m in model_tasks_config]
+
         process_attention_comparison_rmd = tasks.create_rmarkdown_task(
             "process_attention_comparison_rmd",
             ATTENTIONS_RMD,
             common.OUTPUT_PATH,
             ATTENTIONS_RMD_OUTPUT_FILENAME,
-            chain, git_branch=git_branch)
+            chain, models, git_branch=git_branch)
 
         process_attention_comparison_rmd << attention_tasks
 
@@ -262,7 +265,7 @@ with DAG(
             CV_AUROC_RMD,
             common.OUTPUT_PATH,
             CV_AUROC_RMD_OUTPUT_FILENAME,
-            chain, git_branch=git_branch)
+            chain, models, git_branch=git_branch)
 
         process_cv_auroc_rmd << svm_embeddings_prediction_tasks
 
@@ -271,7 +274,7 @@ with DAG(
             CV_METRICS_RMD,
             common.OUTPUT_PATH,
             CV_METRICS_RMD_OUTPUT_FILENAME,
-            chain, git_branch=git_branch)
+            chain, models, git_branch=git_branch)
 
         process_metrics_rmd << predict_tasks
 
@@ -287,6 +290,8 @@ with DAG(
                 '</br>'
                 'Chain: <b>{{ var.value.chain}}</b></br>'
                 'Branch: <b>{{ var.value.bbk_mres_git_branch}}</b></br>'
+                '</br>'
+                'Models: <b>{{ params.models }}</b></br>'
                 '</p>'
                 '<h3>Results</h3>'
                 '<p>'
@@ -312,6 +317,7 @@ with DAG(
                 '</p>'),
             params={
                 "data_url": data_url,
+                "models": ",".join(models),
                 "get_dag_run_url": utils.get_dag_run_url}
             )
 
