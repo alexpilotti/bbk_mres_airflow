@@ -50,14 +50,16 @@ SVM_EMBEDDINGS_MODEL_PATH = (
 SVM_EMBEDDINGS_BUILD_MODEL_METRICS_PATH = (
     f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}.csv")
 SVM_EMBEDDINGS_PREDICT_METRICS_PATH = (
-    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}_predict.json")
+    f"{common.DATA_PATH}/" +
+    "predict_metrics_{model}_{chain}_{pre_trained}_SVM.json")
 SVM_EMBEDDINGS_SHUFFLED_MODEL_PATH = (
     f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}_shuffled.jbl")
 SVM_EMBEDDINGS_SHUFFLED_BUILD_MODEL_OUTPUT_PATH = (
-    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}_shuffled.csv")
+    f"{common.DATA_PATH}/" +
+    "svm_{model}_{chain}_{pre_trained}_shuffled.csv")
 SVM_EMBEDDINGS_SHUFFLED_PREDICT_METRICS_PATH = (
     f"{common.DATA_PATH}/" +
-    "svm_{model}_{chain}_{pre_trained}_predict_shuffled.json")
+    "predict_metrics_{model}_{chain}_{pre_trained}_SVM_shuffled.json")
 
 UCL_SGE_UTILS_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/sge-utils"
 
