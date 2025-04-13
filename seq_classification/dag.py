@@ -21,9 +21,6 @@ VAR_UCL_EXTERNAL_MODELS_PATH = "ucl_external_models_path"
 ATTENTIONS_RMD = "attention_comparison.Rmd"
 ATTENTIONS_RMD_OUTPUT_FILENAME = "attention_comparison.html"
 
-CV_AUROC_RMD = "cv_auroc.Rmd"
-CV_AUROC_RMD_OUTPUT_FILENAME = "cv_auroc.html"
-
 CV_METRICS_RMD = "metrics.Rmd"
 CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
 
@@ -254,16 +251,6 @@ with DAG(
 
         process_attention_comparison_rmd << attention_tasks
 
-        process_cv_auroc_rmd = tasks.create_rmarkdown_task(
-            "process_cv_auroc_rmd",
-            CV_AUROC_RMD,
-            common.OUTPUT_PATH,
-            CV_AUROC_RMD_OUTPUT_FILENAME,
-            git_branch=git_branch, chain=chain, models=models,
-            data_path=common.DATA_PATH)
-
-        process_cv_auroc_rmd << svm_embeddings_prediction_tasks
-
         include_svm = Variable.get("metrics_include_svm", default_var=False,
                                    deserialize_json=True)
 
@@ -306,10 +293,6 @@ with DAG(
                 '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
                 'attention_comparison.html">Attention comparison</a>'
                 '  </li>'
-                '  <li>'
-                '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
-                'cv_auroc.html">CV AUROC</a>'
-                '  </li>'
                 '</ul>'
                 '<br/>'
                 '<a href="{{ params.get_dag_run_url(dag.dag_id, run_id) }}">'
@@ -325,5 +308,4 @@ with DAG(
 
         send_success_email << [
             process_attention_comparison_rmd,
-            process_cv_auroc_rmd,
             process_metrics_rmd]
