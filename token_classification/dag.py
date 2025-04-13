@@ -73,8 +73,9 @@ with DAG(
     for m in model_tasks_config:
         m["task_model_name"] = m.get("task_model_name", m["model"])
 
-    enabled_models = Variable.get(common.VAR_ENABLED_MODELS, "").split(",")
+    enabled_models = Variable.get(common.VAR_ENABLED_MODELS, None)
     if enabled_models:
+        enabled_models = enabled_models.split(",")
         model_tasks_config = [m for m in model_tasks_config
                               if m["task_model_name"] in enabled_models]
 
