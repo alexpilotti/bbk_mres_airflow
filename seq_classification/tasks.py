@@ -17,7 +17,7 @@ UCL_GPU_POOL = "ucl_gpu_pool"
 INPUT_PATH = f"{common.DATA_PATH}/S_FULL.parquet"
 
 SPLIT_DATA_INPUT_PATH = f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet"
-SVM_EMBEDDINGS_SHUFFLED_PREDICTION_INPUT_PATH = (
+SVM_EMBEDDINGS_SHUFFLED_BUILD_MODEL_INPUT_PATH = (
     f"{common.DATA_PATH}/S_filtered_shuffled" + "_{chain}.parquet")
 TRAINING_INPUT_PATH = f"{common.DATA_PATH}/S_split" + "_{chain}.parquet"
 TRAINING_OUTPUT_PATH = (
@@ -41,11 +41,23 @@ ATTENTIONS_OUTPUT_PATH = (
 EMBEDDINGS_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" +
     "embeddings_{model}_{chain}_{pre_trained}.pt")
+EMBEDDINGS_TEST_OUTPUT_PATH = (
+    f"{common.DATA_PATH}/" +
+    "embeddings_{model}_{chain}_{pre_trained}_test.pt")
 
-SVM_EMBEDDINGS_PREDICTION_OUTPUT_PATH = (
+SVM_EMBEDDINGS_MODEL_PATH = (
+    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}.jbl")
+SVM_EMBEDDINGS_BUILD_MODEL_METRICS_PATH = (
     f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}.csv")
-SVM_EMBEDDINGS_SHUFFLED_PREDICTION_OUTPUT_PATH = (
+SVM_EMBEDDINGS_PREDICT_METRICS_PATH = (
+    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}_predict.json")
+SVM_EMBEDDINGS_SHUFFLED_MODEL_PATH = (
+    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}_shuffled.jbl")
+SVM_EMBEDDINGS_SHUFFLED_BUILD_MODEL_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}_shuffled.csv")
+SVM_EMBEDDINGS_SHUFFLED_PREDICT_METRICS_PATH = (
+    f"{common.DATA_PATH}/" +
+    "svm_{model}_{chain}_{pre_trained}_predict_shuffled.json")
 
 UCL_SGE_UTILS_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/sge-utils"
 
@@ -135,10 +147,15 @@ EMBEDDINGS_CMD = COMMON_CMD + (
 SHUFFLE_CMD = COMMON_CMD + (
     "shuffle -i {{ params.input }} -o {{ params.output }}")
 
-SVM_EMBEDDINGS_PREDICTION_CMD = COMMON_CMD + (
-    "svm-embeddings-prediction -i {{ params.input }} "
-    "-e {{ params.embeddings }} -o {{ params.output }} "
-    "-l {{ params.positive_labels }}")
+SVM_EMBEDDINGS_BUILD_MODEL_CMD = COMMON_CMD + (
+    "svm-embeddings-build-model -i {{ params.input }} "
+    "-e {{ params.embeddings }} -m {{ params.model }} "
+    "-o {{ params.output_metrics }} -l {{ params.positive_labels }}")
+
+SVM_EMBEDDINGS_PREDICT_CMD = COMMON_CMD + (
+    "svm-embeddings-predict -i {{ params.input }} "
+    "-e {{ params.embeddings }} -m {{ params.model }} "
+    "-o {{ params.output_metrics }}")
 
 RMARKDOWN_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
@@ -377,7 +394,7 @@ def create_split_data_tasks(chain, use_accelerate=False, git_branch="main"):
 def create_shuffle_labels_tasks(chain, use_accelerate=False,
                                 git_branch="main"):
     input_path = SPLIT_DATA_INPUT_PATH.format(chain=chain)
-    output_path = SVM_EMBEDDINGS_SHUFFLED_PREDICTION_INPUT_PATH.format(
+    output_path = SVM_EMBEDDINGS_SHUFFLED_BUILD_MODEL_INPUT_PATH.format(
         chain=chain)
 
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
@@ -499,7 +516,13 @@ def create_embeddings_tasks(model, chain, model_path=None,
     embeddings_path = EMBEDDINGS_OUTPUT_PATH.format(
         model=task_model_name, chain=chain, pre_trained=pre_trained_str)
 
+    test_input_path = PREDICT_INPUT_PATH.format(chain=chain)
+    test_embeddings_path = EMBEDDINGS_TEST_OUTPUT_PATH.format(
+        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+
     check_inputs = [input_path]
+    check_test_inputs = [test_input_path]
+
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
             model=task_model_name, chain=chain)
@@ -507,6 +530,7 @@ def create_embeddings_tasks(model, chain, model_path=None,
         training_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
             model=task_model_name, chain=chain)
         check_inputs.append(training_path_check)
+        check_test_inputs.append(training_path_check)
 
     task_check_emb = fs_compare_operators.ComparePathDatetimesSensor(
         task_id=("check_update_embeddings_"
@@ -531,38 +555,108 @@ def create_embeddings_tasks(model, chain, model_path=None,
                 "git_branch": git_branch},
     )
 
-    svm_output_path = SVM_EMBEDDINGS_PREDICTION_OUTPUT_PATH.format(
+    task_check_emb >> task_embeddings
+
+    task_check_emb_predict = fs_compare_operators.ComparePathDatetimesSensor(
+        task_id=("check_update_embeddings_predict_"
+                 f"{task_model_name}_{chain}_{pre_trained_str}"),
+        path1=check_test_inputs,
+        path2=test_embeddings_path,
+        trigger_rule="none_failed"
+    )
+
+    task_embeddings_predict = k8s.create_pod_operator(
+        task_id=(f"get_embeddings_predict_{task_model_name}_{chain}_"
+                 f"{pre_trained_str}"),
+        image=common.CUDA_CONTAINER_IMAGE,
+        num_gpus=num_gpus,
+        command=EMBEDDINGS_CMD,
+        params={"model": model,
+                "input": test_input_path,
+                "output": test_embeddings_path,
+                "chain": chain,
+                "model_path": model_path,
+                "use_default_model_tokenizer": use_default_model_tokenizer,
+                "accelerate": use_accelerate,
+                "git_branch": git_branch},
+    )
+
+    task_check_emb_predict >> task_embeddings_predict
+
+    svm_model_path = SVM_EMBEDDINGS_MODEL_PATH.format(
         model=task_model_name, chain=chain, pre_trained=pre_trained_str)
 
-    task_check_svm = fs_compare_operators.ComparePathDatetimesSensor(
-        task_id=("check_update_svm_embeddings_prediction_"
+    svm_build_model_metrics_output_path = (
+        SVM_EMBEDDINGS_BUILD_MODEL_METRICS_PATH.format(
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+
+    task_check_svm_build = fs_compare_operators.ComparePathDatetimesSensor(
+        task_id=("check_update_svm_embeddings_build_model_"
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
         path1=[input_path, embeddings_path],
-        path2=svm_output_path,
+        path2=[svm_model_path, svm_build_model_metrics_output_path],
         trigger_rule="none_failed"
     )
 
     # This task doesn't use CUDA
-    task_compute_svm_embeddings_prediction = k8s.create_pod_operator(
-        task_id=("compute_svm_embeddings_prediction_" +
+    task_svm_embeddings_build_model = k8s.create_pod_operator(
+        task_id=("svm_embeddings_build_model_" +
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
         image=common.CUDA_CONTAINER_IMAGE,
         num_gpus=0,
-        command=SVM_EMBEDDINGS_PREDICTION_CMD,
+        command=SVM_EMBEDDINGS_BUILD_MODEL_CMD,
         params={"input": input_path,
-                "output": svm_output_path,
+                "model": svm_model_path,
+                "output_metrics": svm_build_model_metrics_output_path,
                 "embeddings": embeddings_path,
                 "positive_labels": POSITIVE_LABELS,
                 "accelerate": use_accelerate,
                 "git_branch": git_branch},
     )
 
-    task_check_svm >> task_compute_svm_embeddings_prediction
+    task_check_svm_build >> task_svm_embeddings_build_model
+
+    svm_predict_metrics_output_path = (
+        SVM_EMBEDDINGS_PREDICT_METRICS_PATH.format(
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+
+    task_check_svm_predict = fs_compare_operators.ComparePathDatetimesSensor(
+        task_id=("check_update_svm_embeddings_predict_"
+                 f"{task_model_name}_{chain}_{pre_trained_str}"),
+        path1=[test_input_path, test_embeddings_path, svm_model_path],
+        path2=svm_predict_metrics_output_path,
+        trigger_rule="none_failed"
+    )
+
+    # This task doesn't use CUDA
+    task_svm_embeddings_predict = k8s.create_pod_operator(
+        task_id=("svm_embeddings_predict_" +
+                 f"{task_model_name}_{chain}_{pre_trained_str}"),
+        image=common.CUDA_CONTAINER_IMAGE,
+        num_gpus=0,
+        command=SVM_EMBEDDINGS_PREDICT_CMD,
+        params={"input": test_input_path,
+                "model": svm_model_path,
+                "output_metrics": svm_predict_metrics_output_path,
+                "embeddings": test_embeddings_path,
+                "accelerate": use_accelerate,
+                "git_branch": git_branch},
+    )
+
+    task_embeddings_predict >> task_check_svm_predict
+    task_svm_embeddings_build_model >> task_check_svm_predict
+    task_check_svm_predict >> task_svm_embeddings_predict
 
     svm_input_path_shuffled = (
-        SVM_EMBEDDINGS_SHUFFLED_PREDICTION_INPUT_PATH.format(chain=chain))
+        SVM_EMBEDDINGS_SHUFFLED_BUILD_MODEL_INPUT_PATH.format(chain=chain))
+    svm_model_path_shuffled = (
+        SVM_EMBEDDINGS_SHUFFLED_MODEL_PATH.format(
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
     svm_output_path_shuffled = (
-        SVM_EMBEDDINGS_SHUFFLED_PREDICTION_OUTPUT_PATH.format(
+        SVM_EMBEDDINGS_SHUFFLED_BUILD_MODEL_OUTPUT_PATH.format(
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+    svm_predict_metrics_output_path_shuffled = (
+        SVM_EMBEDDINGS_SHUFFLED_PREDICT_METRICS_PATH.format(
             model=task_model_name, chain=chain, pre_trained=pre_trained_str))
 
     task_check_svm_shuffled = (
@@ -570,33 +664,62 @@ def create_embeddings_tasks(model, chain, model_path=None,
             task_id=("check_update_svm_embeddings_prediction_"
                      f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
             path1=[svm_input_path_shuffled, embeddings_path],
-            path2=svm_output_path_shuffled,
+            path2=[svm_model_path_shuffled, svm_output_path_shuffled],
             trigger_rule="none_failed"
         ))
 
     # This task doesn't use CUDA
-    task_compute_svm_embeddings_prediction_shuffled = k8s.create_pod_operator(
-        task_id=("compute_svm_embeddings_prediction_" +
+    task_svm_embeddings_build_model_shuffled = k8s.create_pod_operator(
+        task_id=("svm_embeddings_build_model_" +
                  f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
         image=common.CUDA_CONTAINER_IMAGE,
         num_gpus=0,
-        command=SVM_EMBEDDINGS_PREDICTION_CMD,
+        command=SVM_EMBEDDINGS_BUILD_MODEL_CMD,
         params={"input": svm_input_path_shuffled,
-                "output": svm_output_path_shuffled,
+                "model": svm_model_path_shuffled,
+                "output_metrics": svm_output_path_shuffled,
                 "embeddings": embeddings_path,
                 "positive_labels": POSITIVE_LABELS,
                 "accelerate": use_accelerate,
                 "git_branch": git_branch},
     )
 
-    task_check_svm_shuffled >> task_compute_svm_embeddings_prediction_shuffled
+    task_chk_svm_pred_shuff = fs_compare_operators.ComparePathDatetimesSensor(
+        task_id=("check_update_svm_embeddings_predict_"
+                 f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
+        path1=[test_input_path, test_embeddings_path, svm_model_path_shuffled],
+        path2=svm_predict_metrics_output_path_shuffled,
+        trigger_rule="none_failed"
+    )
 
-    task_check_emb >> task_embeddings >> [
-        task_check_svm, task_check_svm_shuffled]
+    # This task doesn't use CUDA
+    task_svm_embeddings_predict_shuffled = k8s.create_pod_operator(
+        task_id=("svm_embeddings_predict_" +
+                 f"{task_model_name}_{chain}_{pre_trained_str}_shuffled"),
+        image=common.CUDA_CONTAINER_IMAGE,
+        num_gpus=0,
+        command=SVM_EMBEDDINGS_PREDICT_CMD,
+        params={"input": test_input_path,
+                "model": svm_model_path_shuffled,
+                "output_metrics": svm_predict_metrics_output_path_shuffled,
+                "embeddings": test_embeddings_path,
+                "accelerate": use_accelerate,
+                "git_branch": git_branch},
+    )
 
-    return (task_check_emb, task_embeddings, task_check_svm,
-            task_compute_svm_embeddings_prediction, task_check_svm_shuffled,
-            task_compute_svm_embeddings_prediction_shuffled)
+    task_check_svm_shuffled >> task_svm_embeddings_build_model_shuffled
+    task_chk_svm_pred_shuff >> task_svm_embeddings_predict_shuffled
+    task_embeddings >> [task_check_svm_build, task_check_svm_shuffled]
+    task_embeddings_predict >> [
+        task_check_svm_predict, task_chk_svm_pred_shuff]
+
+    return (task_check_emb, task_embeddings, task_check_emb_predict,
+            task_embeddings_predict, task_check_svm_build,
+            task_svm_embeddings_build_model, task_check_svm_predict,
+            task_svm_embeddings_predict, task_check_svm_shuffled,
+            task_svm_embeddings_build_model_shuffled,
+            task_chk_svm_pred_shuff,
+            task_svm_embeddings_predict_shuffled)
 
 
 def create_rmarkdown_task(task_id, rmd_path, output_base_dir,

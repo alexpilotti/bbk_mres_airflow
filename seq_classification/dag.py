@@ -207,46 +207,38 @@ with DAG(
                     git_branch=git_branch)
 
             with TaskGroup(group_id=f"embeddings") as tg1:
-                (check_updated_embeddings_pt,
-                 get_embeddings_pt, check_svm_emb_pred_pt,
-                 svm_emb_pred_pt, check_svm_emb_pred_pt_shuffled,
-                 svm_emb_pred_pt_shuffled) = tasks.create_embeddings_tasks(
+                (task_check_emb, task_embeddings,
+                 task_check_emb_predict, task_embeddings_predict,
+                 task_check_svm_build, task_svm_emb_build_model,
+                 task_check_svm_predict, task_svm_embeddings_predict,
+                 task_check_svm_shuffled, task_svm_emb_build_model_shuffled,
+                 task_check_svm_predict_shuffled,
+                 task_svm_embeddings_predict_shuffled
+                 ) = tasks.create_embeddings_tasks(
                     model, chain, model_path_pt,
                     use_default_model_tokenizer, task_model_name,
                     num_gpus=num_gpus, git_branch=git_branch)
 
-                (check_updated_embeddings_ft,
-                 get_embeddings_ft, check_svm_emb_pred_ft,
-                 svm_emb_pred_ft, check_svm_emb_pred_ft_shuffled,
-                 svm_emb_pred_ft_shuffled) = tasks.create_embeddings_tasks(
-                    model, chain, None,
-                    use_default_model_tokenizer, task_model_name,
-                    pre_trained=False, num_gpus=num_gpus,
-                    git_branch=git_branch)
+            task_shuffle_labels >> task_check_svm_shuffled
 
-            task_shuffle_labels >> [
-                check_svm_emb_pred_pt_shuffled,
-                check_svm_emb_pred_ft_shuffled]
-
-            task_remove_sim_seqs_train >> [
-                check_updated_embeddings_pt,
-                check_updated_embeddings_ft]
+            task_remove_sim_seqs_train >> task_check_emb
 
             task_undersample_test >> [
                 check_update_predict_metrics_pt,
                 check_update_predict_metrics_ft,
                 check_updated_attentions_pt,
-                check_updated_attentions_ft]
+                check_updated_attentions_ft,
+                task_check_emb_predict]
 
             last_training_task >> check_update_predict_metrics_ft
             last_training_task >> check_updated_attentions_ft
-            last_training_task >> check_updated_embeddings_ft
 
             predict_tasks.extend([predict_metrics_pt, predict_metrics_ft])
             attention_tasks.extend([attentions_pt, attentions_ft])
             svm_embeddings_prediction_tasks.extend(
-                [svm_emb_pred_pt, svm_emb_pred_pt_shuffled,
-                 svm_emb_pred_ft, svm_emb_pred_ft_shuffled])
+                [task_svm_embeddings_predict,
+                 task_svm_emb_build_model_shuffled,
+                 task_svm_embeddings_predict_shuffled])
 
     with TaskGroup(group_id=f"reports") as tg:
         models = [m["task_model_name"] for m in model_tasks_config]
