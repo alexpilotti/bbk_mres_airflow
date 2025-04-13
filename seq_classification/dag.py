@@ -270,6 +270,7 @@ with DAG(
             chain, models, git_branch=git_branch)
 
         process_metrics_rmd << predict_tasks
+        process_metrics_rmd << svm_embeddings_prediction_tasks
 
         data_url = f"{utils.get_base_url()}/data/"
 
