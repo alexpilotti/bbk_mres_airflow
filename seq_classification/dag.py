@@ -249,7 +249,8 @@ with DAG(
             ATTENTIONS_RMD,
             common.OUTPUT_PATH,
             ATTENTIONS_RMD_OUTPUT_FILENAME,
-            chain, models, git_branch=git_branch)
+            git_branch=git_branch, chain=chain, models=models,
+            data_path=common.DATA_PATH)
 
         process_attention_comparison_rmd << attention_tasks
 
@@ -258,7 +259,8 @@ with DAG(
             CV_AUROC_RMD,
             common.OUTPUT_PATH,
             CV_AUROC_RMD_OUTPUT_FILENAME,
-            chain, models, git_branch=git_branch)
+            git_branch=git_branch, chain=chain, models=models,
+            data_path=common.DATA_PATH)
 
         process_cv_auroc_rmd << svm_embeddings_prediction_tasks
 
@@ -267,7 +269,8 @@ with DAG(
             CV_METRICS_RMD,
             common.OUTPUT_PATH,
             CV_METRICS_RMD_OUTPUT_FILENAME,
-            chain, models, git_branch=git_branch)
+            git_branch=git_branch, chain=chain, models=models,
+            data_path=common.DATA_PATH)
 
         process_metrics_rmd << predict_tasks
         process_metrics_rmd << svm_embeddings_prediction_tasks
