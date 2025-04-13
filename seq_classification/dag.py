@@ -264,16 +264,21 @@ with DAG(
 
         process_cv_auroc_rmd << svm_embeddings_prediction_tasks
 
+        include_svm = Variable.get("metrics_include_svm", default_var=False,
+                                   deserialize_json=True)
+
         process_metrics_rmd = tasks.create_rmarkdown_task(
             "metrics_rmd",
             CV_METRICS_RMD,
             common.OUTPUT_PATH,
             CV_METRICS_RMD_OUTPUT_FILENAME,
             git_branch=git_branch, chain=chain, models=models,
+            include_svm=include_svm,
             data_path=common.DATA_PATH)
 
         process_metrics_rmd << predict_tasks
-        process_metrics_rmd << svm_embeddings_prediction_tasks
+        if include_svm:
+            process_metrics_rmd << svm_embeddings_prediction_tasks
 
         data_url = f"{utils.get_base_url()}/data/"
 
