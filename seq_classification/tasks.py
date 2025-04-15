@@ -297,38 +297,6 @@ def create_remove_similar_sequences_tasks(chain, use_accelerate=False,
             task_check_test, task_remove_similar_sequences_test)
 
 
-def create_undersample_training_tasks(chain, use_accelerate=False,
-                                      git_branch="main"):
-    undersample_train_input = SPLIT_DATA_INPUT_PATH.format(
-        chain=chain)
-    undersample_train_output = SPLIT_DATA_INPUT_PATH.format(chain=chain)
-
-    task_check_train = fs_compare_operators.ComparePathDatetimesSensor(
-        task_id=f"check_undersample_training",
-        path1=undersample_train_input,
-        path2=undersample_train_output,
-        trigger_rule="none_failed"
-    )
-
-    # This task doesn't use CUDA
-    task_undersample_train = k8s.create_pod_operator(
-        task_id=f"undersample_training",
-        image=common.CUDA_CONTAINER_IMAGE,
-        num_gpus=0,
-        command=UNDERSAMPLE_CMD,
-        params={"input": undersample_train_input,
-                "output": undersample_train_output,
-                "target": None,
-                "target_dataset": None,
-                "accelerate": use_accelerate,
-                "git_branch": git_branch},
-    )
-
-    task_check_train >> task_undersample_train
-
-    return (task_check_train, task_undersample_train)
-
-
 def create_undersample_test_tasks(chain, use_accelerate=False,
                                   git_branch="main"):
     training_input_path = TRAINING_INPUT_PATH.format(chain=chain)
