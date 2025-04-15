@@ -93,37 +93,38 @@ with DAG(
     attention_tasks = []
     svm_embeddings_prediction_tasks = []
 
-    (task_check_remove_sim_seqs_train,
-     task_remove_sim_seqs_train,
-     task_check_remove_sim_seqs_test,
-     task_remove_sim_seqs_test) = tasks.create_remove_similar_sequences_tasks(
-        chain, git_branch=git_branch)
+    with TaskGroup(group_id="data_preparation") as tg:
+        (task_check_remove_sim_seqs_train,
+         task_remove_sim_seqs_train,
+         task_check_remove_sim_seqs_test,
+         task_remove_sim_seqs_test
+         ) = tasks.create_remove_similar_sequences_tasks(
+            chain, git_branch=git_branch)
 
-    with TaskGroup(group_id="adjust_label_counts") as tg:
         (task_check_undersample_test,
          task_undersample_test) = tasks.create_undersample_test_tasks(
             chain, git_branch=git_branch)
 
-    (task_check_split_data,
-     task_split_data) = tasks.create_split_data_tasks(
-         chain, git_branch=git_branch)
+        (task_check_split_data,
+         task_split_data) = tasks.create_split_data_tasks(
+            chain, git_branch=git_branch)
 
-    (task_check_shuffle_labels,
-     task_shuffle_labels) = tasks.create_shuffle_labels_tasks(
-         chain, git_branch=git_branch)
+        (task_check_shuffle_labels,
+         task_shuffle_labels) = tasks.create_shuffle_labels_tasks(
+            chain, git_branch=git_branch)
 
-    task_remove_sim_seqs_train >> task_check_remove_sim_seqs_test
-    task_remove_sim_seqs_train >> task_check_shuffle_labels
-    task_remove_sim_seqs_train >> task_check_split_data
-    # task_undersample_train >> task_check_split_data
-    task_split_data >> task_check_undersample_test
-    task_remove_sim_seqs_test >> task_check_undersample_test
-    # task_remove_sim_seqs_train >> task_check_undersample_train
+        task_remove_sim_seqs_train >> task_check_remove_sim_seqs_test
+        task_remove_sim_seqs_train >> task_check_shuffle_labels
+        task_remove_sim_seqs_train >> task_check_split_data
+        # task_undersample_train >> task_check_split_data
+        task_split_data >> task_check_undersample_test
+        task_remove_sim_seqs_test >> task_check_undersample_test
+        # task_remove_sim_seqs_train >> task_check_undersample_train
 
-    ucl_put_input = tasks.create_ucl_upload_sequences_task(
-        ucl_sftp_hook, chain)
+        ucl_put_input = tasks.create_ucl_upload_sequences_task(
+            ucl_sftp_hook, chain)
 
-    task_split_data >> ucl_put_input
+        task_split_data >> ucl_put_input
 
     predict_tasks = []
 
