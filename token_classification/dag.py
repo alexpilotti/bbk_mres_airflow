@@ -19,7 +19,7 @@ TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME = (
 
 TOKEN_PREDICTION_METRICS_RMD = f"token_prediction_metrics.Rmd"
 TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME = (
-    "token_prediction_metrics_{predict_region}.html")
+    "token_prediction_metrics.html")
 
 REGIONS = ["CDR1", "CDR2", "CDR3"]
 
@@ -143,22 +143,23 @@ with DAG(
                 common.OUTPUT_PATH,
                 TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME.format(
                     predict_region=predict_region),
-                chain, fine_tuning_region, predict_region, models,
-                git_branch)
-
-            token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
-                f"token_prediction_metrics_rmd_{predict_region}",
-                TOKEN_PREDICTION_METRICS_RMD,
-                common.OUTPUT_PATH,
-                TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME.format(
-                    predict_region=predict_region),
-                chain, fine_tuning_region, predict_region, models,
-                git_branch)
+                git_branch, data_path={common.DATA_PATH}, chain=chain,
+                fine_tuning_region=fine_tuning_region or "FULL",
+                predict_region=predict_region, models=models)
 
             predict_tasks >> token_prediction_labels_rmd
-            predict_tasks >> token_prediction_metrics_rmd
-            report_tasks += [token_prediction_labels_rmd,
-                             token_prediction_metrics_rmd]
+            report_tasks += [token_prediction_labels_rmd]
+
+        token_prediction_metrics_rmd = tasks.create_rmarkdown_task(
+            f"token_prediction_metrics_rmd",
+            TOKEN_PREDICTION_METRICS_RMD,
+            common.OUTPUT_PATH,
+            TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME,
+            git_branch, data_path={common.DATA_PATH}, chain=chain,
+            models=models)
+
+        predict_tasks >> token_prediction_metrics_rmd
+        report_tasks += [token_prediction_metrics_rmd]
 
         data_url = f"{utils.get_base_url()}/data/"
 
@@ -186,13 +187,12 @@ with DAG(
                 'predict_region=predict_region) }}">'
                 'Token prediction labels {{ predict_region }}</a>'
                 '  </li>'
+                '{% endfor %}'
                 '  <li>'
                 '    <a href="{{ params.data_url }}/output/{{ run_id }}/'
-                '{{ params.token_prediction_metrics_output.format('
-                'predict_region=predict_region) }}">'
-                'Token prediction metrics {{ predict_region }}</a>'
+                '{{ params.token_prediction_metrics_output }}">'
+                'Token prediction metrics</a>'
                 '  </li>'
-                '{% endfor %}'
                 '</ul>'
                 '<br/>'
                 '<a href="{{ params.get_dag_run_url(dag.dag_id, run_id) }}">'
