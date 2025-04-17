@@ -105,13 +105,21 @@ with DAG(
          task_undersample_test) = tasks.create_undersample_test_tasks(
             chain, git_branch=git_branch)
 
-        (task_check_split_data,
-         task_split_data) = tasks.create_split_data_tasks(
-            chain, git_branch=git_branch)
+        with TaskGroup(group_id="split_data"):
+            (task_check_split_data,
+             task_split_data) = tasks.create_split_data_tasks(
+                chain, filtered=True, git_branch=git_branch)
+            (task_check_split_data_nf,
+             task_split_data_nf) = tasks.create_split_data_tasks(
+                chain, filtered=False, git_branch=git_branch)
 
-        (task_check_shuffle_labels,
-         task_shuffle_labels) = tasks.create_shuffle_labels_tasks(
-            chain, git_branch=git_branch)
+        with TaskGroup(group_id="shuffle_labels"):
+            (task_check_shuffle_labels,
+             task_shuffle_labels) = tasks.create_shuffle_labels_tasks(
+                chain, filtered=True, git_branch=git_branch)
+            (task_check_shuffle_labels_nf,
+             task_shuffle_labels_nf) = tasks.create_shuffle_labels_tasks(
+                chain, filtered=False, git_branch=git_branch)
 
         task_remove_sim_seqs_train >> task_check_remove_sim_seqs_test
         task_remove_sim_seqs_train >> task_check_shuffle_labels
@@ -121,8 +129,11 @@ with DAG(
         task_remove_sim_seqs_test >> task_check_undersample_test
         # task_remove_sim_seqs_train >> task_check_undersample_train
 
-        ucl_put_input = tasks.create_ucl_upload_sequences_task(
-            ucl_sftp_hook, chain)
+        with TaskGroup(group_id="ucl_upload_sequences"):
+            ucl_put_input = tasks.create_ucl_upload_sequences_task(
+                ucl_sftp_hook, chain, filtered=True)
+            ucl_put_input_nf = tasks.create_ucl_upload_sequences_task(
+                ucl_sftp_hook, chain, filtered=False)
 
         task_split_data >> ucl_put_input
 
@@ -130,114 +141,131 @@ with DAG(
 
     ucl_external_models_path = Variable.get(VAR_UCL_EXTERNAL_MODELS_PATH, "")
 
-    for model_config in model_tasks_config:
-        model = model_config["model"]
-        model_path = model_config.get("path")
-        ucl_cluster = model_config.get("ucl_cluster", False)
-        use_default_model_tokenizer = model_config.get(
-            "use_default_model_tokenizer")
-        use_accelerate = model_config.get("accelerate", False)
-        num_gpus = model_config.get(
-            "gpus", tasks.DEFAULT_GPUS)
-        batch_size = model_config.get("batch_size", tasks.DEFAULT_BATCH_SIZE)
-        model_path_pt = None
-        ucl_model_path = None
+    for filtered in [True, False]:
+        with TaskGroup(
+                group_id="filtered_data" if filtered else "unfiltered_data"):
+            for model_config in model_tasks_config:
+                model = model_config["model"]
+                model_path = model_config.get("path")
+                ucl_cluster = model_config.get("ucl_cluster", False)
+                use_default_model_tokenizer = model_config.get(
+                    "use_default_model_tokenizer")
+                use_accelerate = model_config.get("accelerate", False)
+                num_gpus = model_config.get(
+                    "gpus", tasks.DEFAULT_GPUS)
+                batch_size = model_config.get(
+                    "batch_size", tasks.DEFAULT_BATCH_SIZE)
+                model_path_pt = None
+                ucl_model_path = None
 
-        if model_path:
-            model_path_pt = os.path.join(
-                common.EXTERNAL_MODELS_PATH, model_path)
-            ucl_model_path = os.path.join(ucl_external_models_path, model_path)
+                if model_path:
+                    model_path_pt = os.path.join(
+                        common.EXTERNAL_MODELS_PATH, model_path)
+                    ucl_model_path = os.path.join(
+                        ucl_external_models_path, model_path)
 
-        task_model_name = model_config["task_model_name"]
+                task_model_name = model_config["task_model_name"]
 
-        with TaskGroup(group_id=task_model_name) as tg:
-            if not ucl_cluster:
-                with TaskGroup(group_id=f"training") as tg1:
-                    (check_update_model,
-                     training) = tasks.create_training_tasks(
-                        model, chain, model_path_pt,
-                        use_default_model_tokenizer, task_model_name,
-                        batch_size, use_accelerate, num_gpus, git_branch)
+                with TaskGroup(group_id=task_model_name) as tg:
+                    if not ucl_cluster:
+                        with TaskGroup(group_id=f"training") as tg1:
+                            (check_update_model,
+                             training) = tasks.create_training_tasks(
+                                model, chain, model_path_pt,
+                                use_default_model_tokenizer, task_model_name,
+                                batch_size, filtered, use_accelerate, num_gpus,
+                                git_branch)
 
-                    task_split_data >> check_update_model
-                    last_training_task = training
-            else:
-                with TaskGroup(group_id=f"ucl_training") as tg1:
-                    (check_update_model, ucl_training,
-                     get_model_zip, ucl_delete_model_zip,
-                     unzip_model) = tasks.create_ucl_training_tasks(
-                        ucl_ssh_hook, ucl_sftp_hook, model, chain,
-                        ucl_model_path, use_default_model_tokenizer,
-                        task_model_name)
+                            if filtered:
+                                task_split_data >> check_update_model
+                            else:
+                                task_split_data_nf >> check_update_model
 
-                    ucl_bbk_mres_git_reset_task >> ucl_training
-                    ucl_sge_utils_git_reset_task >> ucl_training
-                    check_update_model >> ucl_put_input
-                    ucl_put_input >> ucl_training
-                    check_update_model >> ucl_training
-                    last_training_task = unzip_model
+                            last_training_task = training
+                    else:
+                        with TaskGroup(group_id=f"ucl_training") as tg1:
+                            (check_update_model, ucl_training,
+                             get_model_zip, ucl_delete_model_zip,
+                             unzip_model) = tasks.create_ucl_training_tasks(
+                                ucl_ssh_hook, ucl_sftp_hook, model, chain,
+                                ucl_model_path, use_default_model_tokenizer,
+                                task_model_name, filtered)
 
-            with TaskGroup(group_id=f"predict") as tg1:
-                (check_update_predict_metrics_pt,
-                 predict_metrics_pt) = tasks.create_predict_tasks(
-                    model, chain, model_path_pt,
-                    use_default_model_tokenizer, task_model_name,
-                    num_gpus=num_gpus, git_branch=git_branch)
+                            ucl_bbk_mres_git_reset_task >> ucl_training
+                            ucl_sge_utils_git_reset_task >> ucl_training
+                            check_update_model >> ucl_put_input
+                            ucl_put_input >> ucl_training
+                            check_update_model >> ucl_training
+                            last_training_task = unzip_model
 
-                (check_update_predict_metrics_ft,
-                 predict_metrics_ft) = tasks.create_predict_tasks(
-                    model, chain, None,
-                    use_default_model_tokenizer, task_model_name,
-                    pre_trained=False, num_gpus=num_gpus,
-                    git_branch=git_branch)
+                    with TaskGroup(group_id=f"predict") as tg1:
+                        (check_update_predict_metrics_pt,
+                         predict_metrics_pt) = tasks.create_predict_tasks(
+                            model, chain, model_path_pt,
+                            use_default_model_tokenizer, task_model_name,
+                            pre_trained=True, filtered=filtered,
+                            num_gpus=num_gpus, git_branch=git_branch)
 
-            with TaskGroup(group_id=f"attentions") as tg1:
-                (check_updated_attentions_pt,
-                 attentions_pt) = tasks.create_attention_comparison_tasks(
-                    model, chain, model_path_pt,
-                    use_default_model_tokenizer, task_model_name,
-                    num_gpus=num_gpus, git_branch=git_branch)
+                        (check_update_predict_metrics_ft,
+                         predict_metrics_ft) = tasks.create_predict_tasks(
+                            model, chain, None,
+                            use_default_model_tokenizer, task_model_name,
+                            pre_trained=False, filtered=filtered,
+                            num_gpus=num_gpus, git_branch=git_branch)
 
-                (check_updated_attentions_ft,
-                 attentions_ft) = tasks.create_attention_comparison_tasks(
-                    model, chain, None,
-                    use_default_model_tokenizer, task_model_name,
-                    pre_trained=False, num_gpus=num_gpus,
-                    git_branch=git_branch)
+                    with TaskGroup(group_id=f"attentions") as tg1:
+                        (check_updated_attentions_pt, attentions_pt
+                         ) = tasks.create_attention_comparison_tasks(
+                            model, chain, model_path_pt,
+                            use_default_model_tokenizer, task_model_name,
+                            pre_trained=True, filtered=filtered,
+                            num_gpus=num_gpus, git_branch=git_branch)
 
-            with TaskGroup(group_id=f"embeddings") as tg1:
-                (task_check_emb, task_embeddings,
-                 task_check_emb_predict, task_embeddings_predict,
-                 task_check_svm_build, task_svm_emb_build_model,
-                 task_check_svm_predict, task_svm_embeddings_predict,
-                 task_check_svm_shuffled, task_svm_emb_build_model_shuffled,
-                 task_check_svm_predict_shuffled,
-                 task_svm_embeddings_predict_shuffled
-                 ) = tasks.create_embeddings_tasks(
-                    model, chain, model_path_pt,
-                    use_default_model_tokenizer, task_model_name,
-                    num_gpus=num_gpus, git_branch=git_branch)
+                        (check_updated_attentions_ft, attentions_ft
+                         ) = tasks.create_attention_comparison_tasks(
+                            model, chain, None,
+                            use_default_model_tokenizer, task_model_name,
+                            pre_trained=False, filtered=filtered,
+                            num_gpus=num_gpus, git_branch=git_branch)
 
-            task_shuffle_labels >> task_check_svm_shuffled
+                    with TaskGroup(group_id=f"embeddings") as tg1:
+                        (task_check_emb, task_embeddings,
+                         task_check_emb_predict, task_embeddings_predict,
+                         task_check_svm_build, task_svm_emb_build_model,
+                         task_check_svm_predict, task_svm_embeddings_predict,
+                         task_check_svm_shuffled,
+                         task_svm_emb_build_model_shuffled,
+                         task_check_svm_predict_shuffled,
+                         task_svm_embeddings_predict_shuffled
+                         ) = tasks.create_embeddings_tasks(
+                            model, chain, model_path_pt,
+                            use_default_model_tokenizer, task_model_name,
+                            filtered=filtered, num_gpus=num_gpus,
+                            git_branch=git_branch)
 
-            task_remove_sim_seqs_train >> task_check_emb
+                    if filtered:
+                        task_shuffle_labels >> task_check_svm_shuffled
+                        task_remove_sim_seqs_train >> task_check_emb
 
-            task_undersample_test >> [
-                check_update_predict_metrics_pt,
-                check_update_predict_metrics_ft,
-                check_updated_attentions_pt,
-                check_updated_attentions_ft,
-                task_check_emb_predict]
+                        task_undersample_test >> [
+                            check_update_predict_metrics_pt,
+                            check_update_predict_metrics_ft,
+                            check_updated_attentions_pt,
+                            check_updated_attentions_ft,
+                            task_check_emb_predict]
+                    else:
+                        task_shuffle_labels_nf >> task_check_svm_shuffled
 
-            last_training_task >> check_update_predict_metrics_ft
-            last_training_task >> check_updated_attentions_ft
+                    last_training_task >> check_update_predict_metrics_ft
+                    last_training_task >> check_updated_attentions_ft
 
-            predict_tasks.extend([predict_metrics_pt, predict_metrics_ft])
-            attention_tasks.extend([attentions_pt, attentions_ft])
-            svm_embeddings_prediction_tasks.extend(
-                [task_svm_embeddings_predict,
-                 task_svm_emb_build_model_shuffled,
-                 task_svm_embeddings_predict_shuffled])
+                    predict_tasks.extend(
+                        [predict_metrics_pt, predict_metrics_ft])
+                    attention_tasks.extend([attentions_pt, attentions_ft])
+                    svm_embeddings_prediction_tasks.extend(
+                        [task_svm_embeddings_predict,
+                         task_svm_emb_build_model_shuffled,
+                         task_svm_embeddings_predict_shuffled])
 
     with TaskGroup(group_id=f"reports") as tg:
         models = [m["task_model_name"] for m in model_tasks_config]

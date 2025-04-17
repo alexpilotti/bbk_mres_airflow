@@ -21,54 +21,61 @@ TEST_INPUT_PATH = (
 REMOVE_SIM_SEQ_OUTPUT_PATH = (
     f"{common.DATA_PATH}/S_filtered" + "_{chain}.parquet")
 SHUFFLE_LABELS_OUTPUT_PATH = (
-    f"{common.DATA_PATH}/S_filtered_shuffled" + "_{chain}.parquet")
-SPLIT_DATA_OUTPUT_PATH = f"{common.DATA_PATH}/S_split" + "_{chain}.parquet"
+    f"{common.DATA_PATH}/S_shuffled" + "_{chain}{filtered}.parquet")
+SPLIT_DATA_OUTPUT_PATH = (
+    f"{common.DATA_PATH}/S_split" + "_{chain}{filtered}.parquet")
 TRAINING_OUTPUT_PATH = (
-    f"{common.MODELS_PATH}/" + "seq_prediction_{model}_{chain}/")
+    f"{common.MODELS_PATH}/" + "seq_prediction_{model}_{chain}{filtered}/")
 TRAINING_OUTPUT_PATH_CHECK = TRAINING_OUTPUT_PATH + "config.json"
 
 REMOVE_SIM_SEQ_TEST_OUTPUT_PATH = (
     f"{common.DATA_PATH}/S_FF_20240729_test_filtered" + "_{chain}.parquet")
 UNDERSAMPLE_TEST_OUTPUT_PATH = (
     f"{common.DATA_PATH}/S_FF_20240729_test_filtered_adj" + "_{chain}.parquet")
-PREDICT_OUTPUT_PATH = (f"{common.DATA_PATH}/" +
-                       "predict_metrics_{model}_{chain}_{pre_trained}.json")
+PREDICT_OUTPUT_PATH = (
+    f"{common.DATA_PATH}/" +
+    "predict_metrics_{model}_{chain}_{pre_trained}{filtered}.json")
 
 ATTENTIONS_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" +
-    "attention_weights_{model}_{chain}_{pre_trained}.parquet")
+    "attention_weights_{model}_{chain}_{pre_trained}{filtered}.parquet")
 
 EMBEDDINGS_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" +
-    "embeddings_{model}_{chain}_{pre_trained}.pt")
+    "embeddings_{model}_{chain}_{pre_trained}{filtered}.pt")
 EMBEDDINGS_TEST_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" +
-    "embeddings_{model}_{chain}_{pre_trained}_test.pt")
+    "embeddings_{model}_{chain}_{pre_trained}{filtered}_test.pt")
 
 SVM_EMBEDDINGS_MODEL_PATH = (
-    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}.jbl")
+    f"{common.DATA_PATH}/" +
+    "svm_{model}_{chain}_{pre_trained}{filtered}.jbl")
 SVM_EMBEDDINGS_BUILD_MODEL_METRICS_PATH = (
-    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}.csv")
+    f"{common.DATA_PATH}/" +
+    "svm_{model}_{chain}_{pre_trained}{filtered}.csv")
 SVM_EMBEDDINGS_PREDICT_METRICS_PATH = (
     f"{common.DATA_PATH}/" +
-    "predict_metrics_{model}_{chain}_{pre_trained}_SVM.json")
+    "predict_metrics_{model}_{chain}_{pre_trained}_SVM{filtered}.json")
 SVM_EMBEDDINGS_SHUFFLED_MODEL_PATH = (
-    f"{common.DATA_PATH}/" + "svm_{model}_{chain}_{pre_trained}_shuffled.jbl")
+    f"{common.DATA_PATH}/" +
+    "svm_{model}_{chain}_{pre_trained}{filtered}_shuffled.jbl")
 SVM_EMBEDDINGS_SHUFFLED_BUILD_MODEL_OUTPUT_PATH = (
     f"{common.DATA_PATH}/" +
-    "svm_{model}_{chain}_{pre_trained}_shuffled.csv")
+    "svm_{model}_{chain}_{pre_trained}{filtered}_shuffled.csv")
 SVM_EMBEDDINGS_SHUFFLED_PREDICT_METRICS_PATH = (
     f"{common.DATA_PATH}/" +
-    "predict_metrics_{model}_{chain}_{pre_trained}_SVM_shuffled.json")
+    "predict_metrics_{model}_{chain}_{pre_trained}" +
+    "_SVM_shuffled{filtered}.json")
 
 UCL_SGE_UTILS_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/sge-utils"
 
 UCL_BASE_DIR = "/SAN/fraternalilab/bcells/apilotti/bbk-mres"
 UCL_DATA_PATH = f"{UCL_BASE_DIR}/data"
 UCL_MODELS_PATH = f"{UCL_BASE_DIR}/models"
-UCL_TRAINING_INPUT_PATH = f"{UCL_DATA_PATH}/S_split" + "_{chain}.parquet"
+UCL_TRAINING_INPUT_PATH = (
+    f"{UCL_DATA_PATH}/S_split" + "_{chain}{filtered}.parquet")
 UCL_TRAINING_OUTPUT_PATH = (
-    f"{UCL_MODELS_PATH}/" + "seq_prediction_{model}_{chain}/")
+    f"{UCL_MODELS_PATH}/" + "seq_prediction_{model}_{chain}{filtered}/")
 UCL_DOWNLOAD_TMP_PATH = f"{common.DATA_PATH}/ucl_download_tmp"
 
 UCL_TRAINING_NUM_GPUS = 2
@@ -187,22 +194,29 @@ UCL_TRAINING_CMD = (
 
 def create_attention_comparison_tasks(
         model, chain, model_path=None, use_default_model_tokenizer=None,
-        task_model_name=None, pre_trained=True, num_gpus=DEFAULT_GPUS,
-        use_accelerate=False, git_branch="main"):
+        task_model_name=None, pre_trained=True, filtered=True,
+        num_gpus=DEFAULT_GPUS, use_accelerate=False, git_branch="main"):
     pre_trained_str = (
         common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
-    input_path = UNDERSAMPLE_TEST_OUTPUT_PATH.format(chain=chain)
+    filtered_str = _get_filtered_str(filtered)
+
+    if filtered:
+        input_path = UNDERSAMPLE_TEST_OUTPUT_PATH.format(chain=chain)
+    else:
+        input_path = TEST_INPUT_PATH
+
     output_path = ATTENTIONS_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+        filtered=filtered_str)
     training_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
-        model=task_model_name, chain=chain)
+        model=task_model_name, chain=chain, filtered=filtered_str)
     max_sequences = Variable.get("max_attention_sequences",
                                  default_var=MAX_ATTENTION_SEQUENCES)
 
     check_inputs = [input_path]
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
-            model=task_model_name, chain=chain)
+            model=task_model_name, chain=chain, filtered=filtered_str)
         check_inputs.append(training_path_check)
 
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
@@ -299,7 +313,8 @@ def create_remove_similar_sequences_tasks(chain, use_accelerate=False,
 
 def create_undersample_test_tasks(chain, use_accelerate=False,
                                   git_branch="main"):
-    training_input_path = SPLIT_DATA_OUTPUT_PATH.format(chain=chain)
+    training_input_path = SPLIT_DATA_OUTPUT_PATH.format(
+        chain=chain, filtered=_get_filtered_str(False))
     undersample_test_input = REMOVE_SIM_SEQ_TEST_OUTPUT_PATH.format(
         chain=chain)
     undersample_test_output = UNDERSAMPLE_TEST_OUTPUT_PATH.format(chain=chain)
@@ -330,13 +345,22 @@ def create_undersample_test_tasks(chain, use_accelerate=False,
     return (task_check_test, task_undersample_test)
 
 
-@task_group(group_id="split_data")
-def create_split_data_tasks(chain, use_accelerate=False, git_branch="main"):
-    input_path = REMOVE_SIM_SEQ_OUTPUT_PATH.format(chain=chain)
-    output_path = SPLIT_DATA_OUTPUT_PATH.format(chain=chain)
+def _get_filtered_str(filtered):
+    return "" if filtered else "_NF"
+
+
+def create_split_data_tasks(chain, filtered, use_accelerate=False,
+                            git_branch="main"):
+    filtered_str = _get_filtered_str(filtered)
+    if filtered:
+        input_path = REMOVE_SIM_SEQ_OUTPUT_PATH.format(chain=chain)
+    else:
+        input_path = INPUT_PATH.format(chain=chain)
+    output_path = SPLIT_DATA_OUTPUT_PATH.format(
+        chain=chain, filtered=filtered_str)
 
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
-        task_id=f"check_split_data",
+        task_id=f"check_split_data{filtered_str}",
         path1=input_path,
         path2=output_path,
         trigger_rule="none_failed"
@@ -344,7 +368,7 @@ def create_split_data_tasks(chain, use_accelerate=False, git_branch="main"):
 
     # This task doesn't use CUDA
     task_split_data = k8s.create_pod_operator(
-        task_id=f"split_data",
+        task_id=f"split_data{filtered_str}",
         image=common.CUDA_CONTAINER_IMAGE,
         num_gpus=0,
         command=SPLIT_DATA_CMD,
@@ -361,15 +385,20 @@ def create_split_data_tasks(chain, use_accelerate=False, git_branch="main"):
     return task_check, task_split_data
 
 
-@task_group(group_id="shuffle_labels")
-def create_shuffle_labels_tasks(chain, use_accelerate=False,
+def create_shuffle_labels_tasks(chain, use_accelerate=False, filtered=True,
                                 git_branch="main"):
-    input_path = REMOVE_SIM_SEQ_OUTPUT_PATH.format(chain=chain)
+    filtered_str = _get_filtered_str(filtered)
+
+    if filtered:
+        input_path = REMOVE_SIM_SEQ_OUTPUT_PATH.format(chain=chain)
+    else:
+        input_path = INPUT_PATH
+
     output_path = SHUFFLE_LABELS_OUTPUT_PATH.format(
-        chain=chain)
+        chain=chain, filtered=filtered_str)
 
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
-        task_id=f"check_shuffle_data",
+        task_id=f"check_shuffle_data{filtered_str}",
         path1=input_path,
         path2=output_path,
         trigger_rule="none_failed"
@@ -377,7 +406,7 @@ def create_shuffle_labels_tasks(chain, use_accelerate=False,
 
     # This task doesn't use CUDA
     task_shuffle_labels = k8s.create_pod_operator(
-        task_id=f"shuffle_labels",
+        task_id=f"shuffle_labels{filtered_str}",
         image=common.CUDA_CONTAINER_IMAGE,
         num_gpus=0,
         command=SHUFFLE_CMD,
@@ -395,13 +424,16 @@ def create_shuffle_labels_tasks(chain, use_accelerate=False,
 def create_training_tasks(model, chain, model_path=None,
                           use_default_model_tokenizer=None,
                           task_model_name=None, batch_size=DEFAULT_BATCH_SIZE,
-                          use_accelerate=False,
+                          filtered=True, use_accelerate=False,
                           num_gpus=DEFAULT_GPUS, git_branch="main"):
-    input_path = SPLIT_DATA_OUTPUT_PATH.format(chain=chain)
+    filtered_str = _get_filtered_str(filtered)
+
+    input_path = SPLIT_DATA_OUTPUT_PATH.format(
+        chain=chain, filtered=filtered_str)
     output_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
-        model=task_model_name, chain=chain)
+        model=task_model_name, chain=chain, filtered=filtered_str)
     output_path = TRAINING_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain)
+        model=task_model_name, chain=chain, filtered=filtered_str)
 
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
         task_id=f"check_update_model_{task_model_name}_{chain}",
@@ -434,18 +466,24 @@ def create_training_tasks(model, chain, model_path=None,
 def create_predict_tasks(model, chain, model_path=None,
                          use_default_model_tokenizer=None,
                          task_model_name=None, pre_trained=True,
-                         num_gpus=DEFAULT_GPUS, use_accelerate=False,
-                         git_branch="main"):
+                         filtered=True, num_gpus=DEFAULT_GPUS,
+                         use_accelerate=False, git_branch="main"):
     pre_trained_str = (
         common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
+    filtered_str = _get_filtered_str(filtered)
 
-    input_path = UNDERSAMPLE_TEST_OUTPUT_PATH.format(chain=chain)
+    if filtered:
+        input_path = UNDERSAMPLE_TEST_OUTPUT_PATH.format(chain=chain)
+    else:
+        input_path = TEST_INPUT_PATH
+
     output_path = PREDICT_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+        filtered=filtered_str)
 
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
-            model=task_model_name, chain=chain)
+            model=task_model_name, chain=chain, filtered=filtered_str)
 
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
         task_id=(f"check_update_predict_metrics_"
@@ -456,7 +494,7 @@ def create_predict_tasks(model, chain, model_path=None,
     )
 
     task_predict = k8s.create_pod_operator(
-        task_id=f"predict_{task_model_name}_{chain}_{pre_trained_str}",
+        task_id=(f"predict_{task_model_name}_{chain}_{pre_trained_str}"),
         image=common.CUDA_CONTAINER_IMAGE,
         num_gpus=num_gpus,
         command=PREDICT_CMD,
@@ -478,28 +516,36 @@ def create_predict_tasks(model, chain, model_path=None,
 def create_embeddings_tasks(model, chain, model_path=None,
                             use_default_model_tokenizer=None,
                             task_model_name=None, pre_trained=True,
-                            num_gpus=DEFAULT_GPUS, use_accelerate=False,
-                            git_branch="main"):
+                            filtered=True, num_gpus=DEFAULT_GPUS,
+                            use_accelerate=False, git_branch="main"):
     pre_trained_str = (
         common.PRE_TRAINED if pre_trained else common.FINE_TUNED)
+    filtered_str = _get_filtered_str(filtered)
 
-    input_path = REMOVE_SIM_SEQ_OUTPUT_PATH.format(chain=chain)
     embeddings_path = EMBEDDINGS_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+        filtered=filtered_str)
 
-    test_input_path = UNDERSAMPLE_TEST_OUTPUT_PATH.format(chain=chain)
+    if filtered:
+        input_path = REMOVE_SIM_SEQ_OUTPUT_PATH.format(chain=chain)
+        test_input_path = UNDERSAMPLE_TEST_OUTPUT_PATH.format(chain=chain)
+    else:
+        input_path = INPUT_PATH
+        test_input_path = TEST_INPUT_PATH
+
     test_embeddings_path = EMBEDDINGS_TEST_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+        filtered=filtered_str)
 
     check_inputs = [input_path]
     check_test_inputs = [test_input_path]
 
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
-            model=task_model_name, chain=chain)
+            model=task_model_name, chain=chain, filtered=filtered_str)
 
         training_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
-            model=task_model_name, chain=chain)
+            model=task_model_name, chain=chain, filtered=filtered_str)
         check_inputs.append(training_path_check)
         check_test_inputs.append(training_path_check)
 
@@ -512,7 +558,8 @@ def create_embeddings_tasks(model, chain, model_path=None,
     )
 
     task_embeddings = k8s.create_pod_operator(
-        task_id=f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}",
+        task_id=(
+            f"get_embeddings_{task_model_name}_{chain}_{pre_trained_str}"),
         image=common.CUDA_CONTAINER_IMAGE,
         num_gpus=num_gpus,
         command=EMBEDDINGS_CMD,
@@ -555,11 +602,13 @@ def create_embeddings_tasks(model, chain, model_path=None,
     task_check_emb_predict >> task_embeddings_predict
 
     svm_model_path = SVM_EMBEDDINGS_MODEL_PATH.format(
-        model=task_model_name, chain=chain, pre_trained=pre_trained_str)
+        model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+        filtered=filtered_str)
 
     svm_build_model_metrics_output_path = (
         SVM_EMBEDDINGS_BUILD_MODEL_METRICS_PATH.format(
-            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+            filtered=filtered_str))
 
     task_check_svm_build = fs_compare_operators.ComparePathDatetimesSensor(
         task_id=("check_update_svm_embeddings_build_model_"
@@ -585,11 +634,10 @@ def create_embeddings_tasks(model, chain, model_path=None,
                 "git_branch": git_branch},
     )
 
-    task_check_svm_build >> task_svm_embeddings_build_model
-
     svm_predict_metrics_output_path = (
         SVM_EMBEDDINGS_PREDICT_METRICS_PATH.format(
-            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+            filtered=filtered_str))
 
     task_check_svm_predict = fs_compare_operators.ComparePathDatetimesSensor(
         task_id=("check_update_svm_embeddings_predict_"
@@ -614,21 +662,20 @@ def create_embeddings_tasks(model, chain, model_path=None,
                 "git_branch": git_branch},
     )
 
-    task_embeddings_predict >> task_check_svm_predict
-    task_svm_embeddings_build_model >> task_check_svm_predict
-    task_check_svm_predict >> task_svm_embeddings_predict
-
     svm_input_path_shuffled = (
-        SHUFFLE_LABELS_OUTPUT_PATH.format(chain=chain))
+        SHUFFLE_LABELS_OUTPUT_PATH.format(chain=chain, filtered=filtered_str))
     svm_model_path_shuffled = (
         SVM_EMBEDDINGS_SHUFFLED_MODEL_PATH.format(
-            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+            filtered=filtered_str))
     svm_output_path_shuffled = (
         SVM_EMBEDDINGS_SHUFFLED_BUILD_MODEL_OUTPUT_PATH.format(
-            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+            filtered=filtered_str))
     svm_predict_metrics_output_path_shuffled = (
         SVM_EMBEDDINGS_SHUFFLED_PREDICT_METRICS_PATH.format(
-            model=task_model_name, chain=chain, pre_trained=pre_trained_str))
+            model=task_model_name, chain=chain, pre_trained=pre_trained_str,
+            filtered=filtered_str))
 
     task_check_svm_shuffled = (
         fs_compare_operators.ComparePathDatetimesSensor(
@@ -678,8 +725,14 @@ def create_embeddings_tasks(model, chain, model_path=None,
                 "git_branch": git_branch},
     )
 
-    task_check_svm_shuffled >> task_svm_embeddings_build_model_shuffled
+    task_svm_embeddings_build_model >> task_check_svm_predict
+    task_check_svm_predict >> task_svm_embeddings_predict
+    task_check_svm_build >> task_svm_embeddings_build_model
+
+    task_svm_embeddings_build_model_shuffled >> task_chk_svm_pred_shuff
     task_chk_svm_pred_shuff >> task_svm_embeddings_predict_shuffled
+    task_check_svm_shuffled >> task_svm_embeddings_build_model_shuffled
+
     task_embeddings >> [task_check_svm_build, task_check_svm_shuffled]
     task_embeddings_predict >> [
         task_check_svm_predict, task_chk_svm_pred_shuff]
@@ -743,13 +796,15 @@ def _create_grid_engine_task(
     )
 
 
-@task_group(group_id="ucl_upload_sequences")
-def create_ucl_upload_sequences_task(ucl_sftp_hook, chain):
+def create_ucl_upload_sequences_task(ucl_sftp_hook, chain, filtered):
+    filtered_str = _get_filtered_str(filtered)
     return SFTPOperator(
-        task_id=f"ucl_upload_input_sequences",
+        task_id=f"ucl_upload_input_sequences{filtered_str}",
         sftp_hook=ucl_sftp_hook,
-        local_filepath=SPLIT_DATA_OUTPUT_PATH.format(chain=chain),
-        remote_filepath=UCL_TRAINING_INPUT_PATH.format(chain=chain),
+        local_filepath=SPLIT_DATA_OUTPUT_PATH.format(
+            chain=chain, filtered=filtered_str),
+        remote_filepath=UCL_TRAINING_INPUT_PATH.format(
+            chain=chain, filtered=filtered_str),
         operation="put",
         create_intermediate_dirs=False)
 
@@ -757,17 +812,20 @@ def create_ucl_upload_sequences_task(ucl_sftp_hook, chain):
 def create_ucl_training_tasks(
         ucl_ssh_hook, ucl_sftp_hook, model, chain,
         model_path=None, use_default_model_tokenizer=None,
-        task_model_name=None):
+        task_model_name=None, filtered=True):
+    filtered_str = _get_filtered_str(filtered)
 
-    input_path = SPLIT_DATA_OUTPUT_PATH.format(chain=chain)
+    input_path = SPLIT_DATA_OUTPUT_PATH.format(
+        chain=chain, filtered=filtered_str)
     output_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
-        model=task_model_name, chain=chain)
+        model=task_model_name, chain=chain, filtered=filtered_str)
     output_path = TRAINING_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain)
+        model=task_model_name, chain=chain, filtered=filtered_str)
 
-    ucl_input_path = UCL_TRAINING_INPUT_PATH.format(chain=chain)
+    ucl_input_path = UCL_TRAINING_INPUT_PATH.format(
+        chain=chain, filtered=filtered_str)
     ucl_output_path = UCL_TRAINING_OUTPUT_PATH.format(
-        model=task_model_name, chain=chain)
+        model=task_model_name, chain=chain, filtered=filtered_str)
 
     ucl_zip_path = f"{os.path.normpath(ucl_output_path)}.zip"
     zip_path = os.path.join(
