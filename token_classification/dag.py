@@ -21,7 +21,7 @@ TOKEN_PREDICTION_METRICS_RMD = f"token_prediction_metrics.Rmd"
 TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME = (
     "token_prediction_metrics.html")
 
-REGIONS = ["CDR1", "CDR2", "CDR3"]
+REGIONS = ["FR1", "CDR1", "FR2", "CDR2", "FR3", "CDR3", "FR4"]
 
 
 with DAG(
