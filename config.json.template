@@ -39,6 +39,11 @@
                 "gpus": 8
             },
             {
+                "model": "BALM-unpaired",
+                "path": "BALM-unpaired_LC-coherence_90-5-5-split_010123",
+                "gpus": 8
+            },
+            {
                 "model": "ft-ESM2",
                 "path": "ESM2-650M_paired-fine-tuning",
                 "use_default_model_tokenizer": true,
@@ -88,6 +93,11 @@
             {
                 "model": "BALM-paired",
                 "path": "BALM-paired_LC-coherence_90-5-5-split_122222",
+                "gpus": 8
+            },
+            {
+                "model": "BALM-unpaired",
+                "path": "BALM-unpaired_LC-coherence_90-5-5-split_010123",
                 "gpus": 8
             },
             {
