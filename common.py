@@ -6,6 +6,8 @@ EXTERNAL_MODELS_PATH = f"{DATA_PATH}/pre_trained_models"
 MODELS_PATH = f"{DATA_PATH}/models"
 OUTPUT_PATH = f"{DATA_PATH}/output"
 
+VAR_FROZEN_LAYERS = "frozen_layers"
+DEFAULT_FROZEN_LAYERS = -3
 VAR_CHAIN = "chain"
 VAR_GIT_BBK_MRES_BRANCH = "bbk_mres_git_branch"
 GIT_BBK_MRES_DEFAULT_BRANCH = "main"

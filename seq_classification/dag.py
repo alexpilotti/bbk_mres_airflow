@@ -64,6 +64,10 @@ with DAG(
         common.VAR_GIT_BBK_MRES_BRANCH,
         default_var=common.GIT_BBK_MRES_DEFAULT_BRANCH)
 
+    frozen_layers = Variable.get(
+        common.VAR_FROZEN_LAYERS,
+        common.DEFAULT_FROZEN_LAYERS)
+
     ucl_ssh_hook = ssh_jump_hook.SSHJumpHook(
         ssh_conn_id="ucl_ssh_conn", cmd_timeout=None)
     ucl_sftp_hook = SFTPHook(ssh_hook=ucl_ssh_hook)
@@ -174,7 +178,7 @@ with DAG(
                                 model, chain, model_path_pt,
                                 use_default_model_tokenizer, task_model_name,
                                 batch_size, filtered, use_accelerate, num_gpus,
-                                git_branch)
+                                git_branch, frozen_layers)
 
                             if filtered:
                                 task_split_data >> check_update_model
@@ -308,6 +312,7 @@ with DAG(
                 '</br>'
                 'Chain: <b>{{ var.value.chain}}</b></br>'
                 'Branch: <b>{{ var.value.bbk_mres_git_branch}}</b></br>'
+                'Frozen layers: <b>{{ var.value.frozen_layers }}</b></br>'
                 '</br>'
                 'Models: <b>{{ params.models }}</b></br>'
                 '</p>'

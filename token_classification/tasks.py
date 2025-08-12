@@ -28,6 +28,8 @@ FINE_TUNING_CMD = (
     "-c {{ params.chain }} -b {{ params.batch_size }}"
     "{% if params.region %} --region {{ params.region }}{% endif %}"
     "{% if params.model_path %} -p {{ params.model_path }}{% endif %}"
+    "{% if params.frozen_layers %} --frozen-layers "
+    "{{ params.frozen_layers }}{% endif %}"
     "{% if params.use_default_model_tokenizer %} "
     "--use-default-model-tokenizer"
     "{% endif %}")
@@ -65,7 +67,8 @@ def create_fine_tuning_tasks(model, chain, region, model_path=None,
                              use_default_model_tokenizer=None,
                              task_model_name=None, num_gpus=DEFAULT_GPUS,
                              batch_size=DEFAULT_BATCH_SIZE,
-                             use_accelerate=False, git_branch="main"):
+                             use_accelerate=False, git_branch="main",
+                             frozen_layers=None):
     region_str = region or "FULL"
 
     input_path = FINE_TUNING_INPUT_PATH
@@ -96,7 +99,8 @@ def create_fine_tuning_tasks(model, chain, region, model_path=None,
                 "use_default_model_tokenizer": use_default_model_tokenizer,
                 "batch_size": batch_size,
                 "accelerate": use_accelerate,
-                "git_branch": git_branch}
+                "git_branch": git_branch,
+                "frozen_layers": frozen_layers}
     )
 
     task_check >> task_train

@@ -67,6 +67,10 @@ with DAG(
         common.VAR_GIT_BBK_MRES_BRANCH,
         common.GIT_BBK_MRES_DEFAULT_BRANCH)
 
+    frozen_layers = Variable.get(
+        common.VAR_FROZEN_LAYERS,
+        common.DEFAULT_FROZEN_LAYERS)
+
     model_tasks_config = common.load_config()["token_classification"]["models"]
     model_tasks_config = [m for m in model_tasks_config
                           if m.get("enabled", True)]
@@ -108,7 +112,7 @@ with DAG(
                 task_check_train, task_train = tasks.create_fine_tuning_tasks(
                     model, chain, fine_tuning_region, model_path_pt,
                     use_default_model_tokenizer, task_model_name, num_gpus,
-                    batch_size, use_accelerate, git_branch)
+                    batch_size, use_accelerate, git_branch, frozen_layers)
 
             with TaskGroup(group_id=f"predict") as tg1:
                 for predict_region in predict_regions:
@@ -174,6 +178,7 @@ with DAG(
                 'Chain: <b>{{ var.value.chain}}</b></br>'
                 'Region: <b>{{ var.value.region}}</b></br>'
                 'Branch: <b>{{ var.value.bbk_mres_git_branch}}</b></br>'
+                'Frozen layers: <b>{{ var.value.frozen_layers }}</b></br>'
                 '</br>'
                 'Models: <b>{{ params.models }}</b></br>'
                 '</p>'

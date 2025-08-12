@@ -121,6 +121,8 @@ TRAINING_CMD = COMMON_CMD + (
     "seq-fine-tuning -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
     "-c {{ params.chain }} -b {{ params.batch_size}}"
+    "{% if params.frozen_layers %} --frozen-layers "
+    "{{ params.frozen_layers }}{% endif %}"
     "{% if params.model_path %} -p {{ params.model_path }}"
     "{% endif %}{% if params.use_default_model_tokenizer %} "
     "--use-default-model-tokenizer"
@@ -425,7 +427,8 @@ def create_training_tasks(model, chain, model_path=None,
                           use_default_model_tokenizer=None,
                           task_model_name=None, batch_size=DEFAULT_BATCH_SIZE,
                           filtered=True, use_accelerate=False,
-                          num_gpus=DEFAULT_GPUS, git_branch="main"):
+                          num_gpus=DEFAULT_GPUS, git_branch="main",
+                          frozen_layers=None):
     filtered_str = _get_filtered_str(filtered)
 
     input_path = SPLIT_DATA_OUTPUT_PATH.format(
@@ -455,7 +458,8 @@ def create_training_tasks(model, chain, model_path=None,
                 "use_default_model_tokenizer": use_default_model_tokenizer,
                 "batch_size": batch_size,
                 "accelerate": use_accelerate,
-                "git_branch": git_branch},
+                "git_branch": git_branch,
+                "frozen_layers": frozen_layers},
     )
 
     task_check >> task_train
