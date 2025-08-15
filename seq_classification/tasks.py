@@ -485,14 +485,19 @@ def create_predict_tasks(model, chain, model_path=None,
         model=task_model_name, chain=chain, pre_trained=pre_trained_str,
         filtered=filtered_str)
 
+    check_inputs = [input_path]
+
     if not pre_trained:
         model_path = TRAINING_OUTPUT_PATH.format(
             model=task_model_name, chain=chain, filtered=filtered_str)
+        training_path_check = TRAINING_OUTPUT_PATH_CHECK.format(
+            model=task_model_name, chain=chain, filtered=filtered_str)
+        check_inputs.append(training_path_check)
 
     task_check = fs_compare_operators.ComparePathDatetimesSensor(
         task_id=(f"check_update_predict_metrics_"
                  f"{task_model_name}_{chain}_{pre_trained_str}"),
-        path1=input_path,
+        path1=check_inputs,
         path2=output_path,
         trigger_rule="none_failed"
     )
