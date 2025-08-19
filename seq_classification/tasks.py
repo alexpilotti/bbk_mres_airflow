@@ -97,7 +97,7 @@ DEFAULT_GPUS = 2
 COMMON_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
     "{% if params.accelerate %}"
-    "accelerate launch --multi_gpu --mixed_precision fp16 "
+    "accelerate launch --config_file /data/accelerate.yaml "
     "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
     "{% else %}python{% endif %} "
     "attention_comparison/cli.py ")

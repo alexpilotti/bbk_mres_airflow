@@ -1,0 +1,6 @@
+distributed_type: DEEPSPEED
+deepspeed_config:
+  deepspeed_config_file: /data/zero_stage3_config.json
+  zero3_init_flag: true
+num_processes: 2
+

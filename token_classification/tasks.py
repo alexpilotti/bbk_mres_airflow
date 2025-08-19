@@ -19,7 +19,7 @@ PREDICT_LABELS_PATH = (
 FINE_TUNING_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
     "{% if params.accelerate %}"
-    "accelerate launch --multi_gpu --mixed_precision fp16 "
+    "accelerate launch --config_file /data/accelerate.yaml "
     "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
     "{% else %}python{% endif %} "
     "attention_comparison/cli.py "
@@ -37,7 +37,7 @@ FINE_TUNING_CMD = (
 PREDICT_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
     "{% if params.accelerate %}"
-    "accelerate launch --multi_gpu --mixed_precision fp16 "
+    "accelerate launch --config_file /data/accelerate.yaml "
     "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
     "{% else %}python{% endif %} "
     "attention_comparison/cli.py "
