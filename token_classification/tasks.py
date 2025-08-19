@@ -16,13 +16,15 @@ PREDICT_LABELS_PATH = (
     "token_prediction_{model}_{chain}_{fine_tuning_region}_" +
     "{predict_region}_{pre_trained}.parquet")
 
-FINE_TUNING_CMD = (
+COMMON_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
     "{% if params.accelerate %}"
     "accelerate launch --config_file /data/accelerate.yaml "
     "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
     "{% else %}python{% endif %} "
-    "attention_comparison/cli.py "
+    "attention_comparison/cli.py ")
+
+FINE_TUNING_CMD = COMMON_CMD + (
     "token-fine-tuning -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output }} "
     "-c {{ params.chain }} -b {{ params.batch_size }}"
@@ -34,13 +36,7 @@ FINE_TUNING_CMD = (
     "--use-default-model-tokenizer"
     "{% endif %}")
 
-PREDICT_CMD = (
-    "git fetch && git reset --hard origin/{{ params.git_branch }} && "
-    "{% if params.accelerate %}"
-    "accelerate launch --config_file /data/accelerate.yaml "
-    "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
-    "{% else %}python{% endif %} "
-    "attention_comparison/cli.py "
+PREDICT_CMD = COMMON_CMD + (
     "token-prediction -m {{ params.model }} "
     "-i {{ params.input }} -o {{ params.output_metrics }} "
     "-c {{ params.chain }} -P {{ params.output_labels}}"
