@@ -96,6 +96,7 @@ DEFAULT_GPUS = 2
 
 COMMON_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
+    "pip3 install -r requirements.txt && "
     "{% if params.accelerate %}"
     "accelerate launch --config_file /data/accelerate.yaml "
     "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
