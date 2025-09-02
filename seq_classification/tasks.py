@@ -101,7 +101,7 @@ COMMON_CMD = (
     "accelerate launch --config_file /data/accelerate.yaml "
     "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
     "{% else %}python{% endif %} "
-    "attention_comparison/cli.py ")
+    "abflow/cli.py ")
 
 REMOVE_SIMILAR_SEQUENCES_CMD = COMMON_CMD + (
     "remove-similar-sequences -i {{ params.input }} -o {{ params.output }} "

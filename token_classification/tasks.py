@@ -23,7 +23,7 @@ COMMON_CMD = (
     "accelerate launch --config_file /data/accelerate.yaml "
     "--num_processes=$(nvidia-smi --list-gpus | wc -l)"
     "{% else %}python{% endif %} "
-    "attention_comparison/cli.py ")
+    "abflow/cli.py ")
 
 FINE_TUNING_CMD = COMMON_CMD + (
     "token-fine-tuning -m {{ params.model }} "
