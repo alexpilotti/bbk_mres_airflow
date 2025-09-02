@@ -13,11 +13,11 @@ from bbk_mres_airflow import utils
 
 VAR_REGION = "region"
 
-TOKEN_PREDICTION_LABELS_RMD = f"token_prediction_labels.Rmd"
+TOKEN_PREDICTION_LABELS_RMD = "reports/token_prediction_labels.Rmd"
 TOKEN_PREDICTION_LABELS_OUTPUT_FILENAME = (
     "token_prediction_labels_{predict_region}.html")
 
-TOKEN_PREDICTION_METRICS_RMD = f"token_prediction_metrics.Rmd"
+TOKEN_PREDICTION_METRICS_RMD = "reports/token_prediction_metrics.Rmd"
 TOKEN_PREDICTION_METRICS_OUTPUT_FILENAME = (
     "token_prediction_metrics.html")
 

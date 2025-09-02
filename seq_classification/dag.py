@@ -18,10 +18,10 @@ GIT_DEFAULT_SGE_UTILS_BRANCH = "master"
 
 VAR_UCL_EXTERNAL_MODELS_PATH = "ucl_external_models_path"
 
-ATTENTIONS_RMD = "attention_comparison.Rmd"
+ATTENTIONS_RMD = "reports/attention_comparison.Rmd"
 ATTENTIONS_RMD_OUTPUT_FILENAME = "attention_comparison.html"
 
-CV_METRICS_RMD = "metrics.Rmd"
+CV_METRICS_RMD = "reports/metrics.Rmd"
 CV_METRICS_RMD_OUTPUT_FILENAME = "metrics.html"
 
 
