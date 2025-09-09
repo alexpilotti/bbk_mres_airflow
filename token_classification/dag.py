@@ -86,7 +86,13 @@ with DAG(
     _, task_process_vcab_data = tasks.create_process_vcab_data_tasks(
         git_branch)
 
-    predict_tasks = []
+    (task_paragraph_check,
+     task_paragraph_predict) = tasks.create_paragraph_prediction_tasks(
+         chain, git_branch)
+
+    task_process_vcab_data >> task_paragraph_check
+
+    predict_tasks = [task_paragraph_predict]
 
     predict_regions = [fine_tuning_region]
     if not fine_tuning_region:
@@ -141,6 +147,7 @@ with DAG(
     with TaskGroup(group_id=f"reports") as tg:
         report_tasks = []
         models = [m["task_model_name"] for m in model_tasks_config]
+        models.append(tasks.PARAGRAPH_MODEL_NAME)
 
         for predict_region in predict_regions:
             if not predict_region:

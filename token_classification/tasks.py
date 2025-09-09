@@ -7,6 +7,9 @@ from bbk_mres_airflow import k8s
 VCAB_CSV_PATH = f"{common.DATA_PATH}/final_vcab_with_V_coor.csv"
 POPS_DIR = f"{common.DATA_PATH}/pops_result"
 
+PARAGRAPH_MODEL_NAME = "Paragraph"
+PDB_DIR = f"{common.DATA_PATH}/pdbs"
+
 FINE_TUNING_INPUT_PATH = f"{common.DATA_PATH}/tokens_data.parquet"
 FINE_TUNING_OUTPUT_PATH = (
     f"{common.MODELS_PATH}/" + "token_prediction_{model}_{chain}_{region}/")
@@ -56,6 +59,10 @@ PROCESS_VCAB_DATA_CMD = COMMON_CMD + (
     "process-vcab-data -c {{ params.csv_path }} "
     "-p {{ params.pops_dir }} "
     "-o {{ params.tokens_data_path }}")
+
+PARAGRAPH_PREDICT_CMD = COMMON_CMD + (
+    "paragraph-prediction -i {{ params.input }} -c {{ params.chain }} "
+    "-p {{ params.pdb_dir }} -o {{ params.output }}")
 
 RMARKDOWN_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
@@ -204,6 +211,45 @@ def create_process_vcab_data_tasks(git_branch):
     task_check >> task_process_vcab_data
 
     return task_check, task_process_vcab_data
+
+
+@task_group(group_id=PARAGRAPH_MODEL_NAME)
+def create_paragraph_prediction_tasks(chain, git_branch="main"):
+    model = PARAGRAPH_MODEL_NAME
+    input_path = FINE_TUNING_INPUT_PATH
+    output_dir = common.DATA_PATH
+    pdb_dir = PDB_DIR
+
+    check_output_metrics_path = PREDICT_METRICS_PATH.format(
+        model=model, chain=chain, predict_region="FULL",
+        fine_tuning_region="FULL", pre_trained=common.PRE_TRAINED)
+
+    check_input_paths = [input_path]
+
+    task_check = fs_compare_operators.ComparePathDatetimesSensor(
+        task_id=(f"check_update_predict_paragraph_{chain}"),
+        path1=check_input_paths,
+        path2=check_output_metrics_path,
+        timeout=0,
+        trigger_rule="none_failed"
+    )
+
+    task_predict = k8s.create_pod_operator(
+        task_id=(f"predict_paragraph_{chain}"),
+        image=common.CUDA_CONTAINER_IMAGE,
+        num_gpus=1,
+        command=PARAGRAPH_PREDICT_CMD,
+        params={"input": input_path,
+                "output": output_dir,
+                "chain": chain,
+                "pdb_dir": pdb_dir,
+                "accelerate": False,
+                "git_branch": git_branch}
+    )
+
+    task_check >> task_predict
+
+    return task_check, task_predict
 
 
 def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
