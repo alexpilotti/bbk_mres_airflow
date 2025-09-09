@@ -83,6 +83,9 @@ with DAG(
         model_tasks_config = [m for m in model_tasks_config
                               if m["task_model_name"] in enabled_models]
 
+    _, task_process_vcab_data = tasks.create_process_vcab_data_tasks(
+        git_branch)
+
     predict_tasks = []
 
     predict_regions = [fine_tuning_region]
@@ -113,6 +116,8 @@ with DAG(
                     model, chain, fine_tuning_region, model_path_pt,
                     use_default_model_tokenizer, task_model_name, num_gpus,
                     batch_size, use_accelerate, git_branch, frozen_layers)
+
+            task_process_vcab_data >> task_check_train
 
             with TaskGroup(group_id=f"predict") as tg1:
                 for predict_region in predict_regions:

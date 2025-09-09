@@ -1,6 +1,11 @@
+from airflow.decorators import task_group
+
 from bbk_mres_airflow import common
 from bbk_mres_airflow import fs_compare_operators
 from bbk_mres_airflow import k8s
+
+VCAB_CSV_PATH = f"{common.DATA_PATH}/final_vcab_with_V_coor.csv"
+POPS_DIR = f"{common.DATA_PATH}/pops_result"
 
 FINE_TUNING_INPUT_PATH = f"{common.DATA_PATH}/tokens_data.parquet"
 FINE_TUNING_OUTPUT_PATH = (
@@ -46,6 +51,11 @@ PREDICT_CMD = COMMON_CMD + (
     "{% if params.use_default_model_tokenizer %} "
     "--use-default-model-tokenizer"
     "{% endif %}")
+
+PROCESS_VCAB_DATA_CMD = COMMON_CMD + (
+    "process-vcab-data -c {{ params.csv_path }} "
+    "-p {{ params.pops_dir }} "
+    "-o {{ params.tokens_data_path }}")
 
 RMARKDOWN_CMD = (
     "git fetch && git reset --hard origin/{{ params.git_branch }} && "
@@ -163,6 +173,37 @@ def create_label_prediction_tasks(model, chain, fine_tuning_region,
     task_check >> task_predict
 
     return task_check, task_predict
+
+
+@task_group(group_id="VCAb")
+def create_process_vcab_data_tasks(git_branch):
+    csv_path = VCAB_CSV_PATH
+    pops_dir = POPS_DIR
+    tokens_data_path = FINE_TUNING_INPUT_PATH
+
+    task_check = fs_compare_operators.ComparePathDatetimesSensor(
+        task_id=f"check_process_vcab_data",
+        path1=[csv_path, pops_dir],
+        path2=tokens_data_path,
+        timeout=0,
+        trigger_rule="none_failed"
+    )
+
+    task_process_vcab_data = k8s.create_pod_operator(
+        task_id=f"process_vcab_data",
+        image=common.CUDA_CONTAINER_IMAGE,
+        num_gpus=0,
+        command=PROCESS_VCAB_DATA_CMD,
+        params={"csv_path": csv_path,
+                "pops_dir": pops_dir,
+                "tokens_data_path": tokens_data_path,
+                "accelerate": False,
+                "git_branch": git_branch}
+    )
+
+    task_check >> task_process_vcab_data
+
+    return task_check, task_process_vcab_data
 
 
 def create_rmarkdown_task(task_id, rmd_path, output_base_dir,
